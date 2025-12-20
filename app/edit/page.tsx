@@ -1,12 +1,18 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import type { Post } from "@/lib/types"
 
 const categories = ["Mathematics", "Development", "DevOps", "Computer Science", "Research"]
 
 export default function EditPage() {
+  const searchParams = useSearchParams()
+  const postId = searchParams.get("id")
+
+  const [post, setPost] = useState<Post | null>(null)
   const [title, setTitle] = useState("")
   const [category, setCategory] = useState("")
   const [excerpt, setExcerpt] = useState("")
@@ -15,32 +21,53 @@ export default function EditPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
+  const supabase = createClient()
+
+  useEffect(() => {
+    const fetchPost = async () => {
+      if (postId) {
+        const { data, error } = await supabase.from("posts").select("*").eq("id", postId).single()
+        if (error) {
+          setMessage({ type: "error", text: `Error: ${error.message}` })
+        } else if (data) {
+          setPost(data)
+          setTitle(data.title)
+          setCategory(data.category)
+          setExcerpt(data.excerpt)
+          setContent(data.content)
+          setImageUrl(data.image_url || "")
+        }
+      }
+    }
+    fetchPost()
+  }, [postId, supabase])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
     setMessage(null)
 
-    const supabase = createClient()
+    if (!postId) {
+      setMessage({ type: "error", text: "No post ID provided." })
+      setIsSubmitting(false)
+      return
+    }
 
-    const { error } = await supabase.from("posts").insert({
-      title,
-      category,
-      excerpt,
-      content,
-      image_url: imageUrl || null,
-      read_time: `${Math.max(1, Math.ceil(content.split(" ").length / 200))} min`,
-    })
+    const { error } = await supabase
+      .from("posts")
+      .update({
+        title,
+        category,
+        excerpt,
+        content,
+        image_url: imageUrl || null,
+      })
+      .eq("id", postId)
 
     if (error) {
       setMessage({ type: "error", text: `Error: ${error.message}` })
     } else {
-      setMessage({ type: "success", text: "Post published successfully!" })
-      // Reset form
-      setTitle("")
-      setCategory("")
-      setExcerpt("")
-      setContent("")
-      setImageUrl("")
+      setMessage({ type: "success", text: "Post updated successfully!" })
     }
 
     setIsSubmitting(false)
@@ -85,7 +112,7 @@ export default function EditPage() {
             Back to Home
           </a>
 
-          <h1 className="mb-8 text-2xl font-light tracking-wide text-[#080f18]">CREATE NEW POST</h1>
+          <h1 className="mb-8 text-2xl font-light tracking-wide text-[#080f18]">EDIT POST</h1>
 
           {/* Message */}
           {message && (
@@ -194,7 +221,7 @@ export default function EditPage() {
                 disabled={isSubmitting}
                 className="bg-[#080f18] px-8 py-3 text-xs tracking-wider text-white transition-colors hover:bg-[#1a2632] disabled:opacity-50"
               >
-                {isSubmitting ? "Publishing..." : "Publish"}
+                {isSubmitting ? "Updating..." : "Update Post"}
               </button>
             </div>
           </form>
