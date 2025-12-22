@@ -1,14 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import type { Post } from "@/lib/types"
-import { cookies } from "next/headers"
-import Link from "next/link"
 
 export default async function Page() {
   const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
   const { data: posts } = await supabase.from("posts").select("*").order("created_at", { ascending: false })
 
   const blogPosts = (posts as Post[]) || []
@@ -34,21 +28,9 @@ export default async function Page() {
             <a href="/about" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
               ABOUT
             </a>
-            {session ? (
-              <form action="/auth/signout" method="post">
-                <button type="submit" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-                  LOGOUT
-                </button>
-              </form>
-            ) : (
-              <Link href="/login" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-                LOGIN
-              </Link>
-            )}
           </nav>
         </div>
       </header>
-
 
       {/* Hero */}
       <section className="w-full bg-white py-12">
@@ -103,21 +85,12 @@ export default async function Page() {
                       </span>
                       <span>{post.read_time} read</span>
                     </div>
-                    {session ? (
-                      <Link
-                        href={`/edit?id=${post.id}`}
-                        className="text-xs tracking-wider text-[#6096ba] transition-colors hover:text-[#4a7a9a]"
-                      >
-                        Edit
-                      </Link>
-                    ) : (
-                      <a
-                        href={`/post?id=${post.id}`}
-                        className="text-xs tracking-wider text-[#6096ba] transition-colors hover:text-[#4a7a9a]"
-                      >
-                        Read More
-                      </a>
-                    )}
+                    <a
+                      href={`/post?id=${post.id}`}
+                      className="text-xs tracking-wider text-[#6096ba] transition-colors hover:text-[#4a7a9a]"
+                    >
+                      Read More
+                    </a>
                   </div>
                 </div>
               </article>

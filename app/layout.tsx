@@ -2,7 +2,6 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Noto_Sans } from "next/font/google"
 import "./globals.css"
-import "katex/dist/katex.min.css";
 
 const fontSans = Noto_Sans({ subsets: ["latin"], variable: "--font-sans" })
 

@@ -3,9 +3,6 @@
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { Post } from "@/lib/types"
-import ReactMarkdown from "react-markdown"
-import remarkMath from "remark-math"
-import rehypeKatex from "rehype-katex"
 
 export default function PostPage() {
   const [post, setPost] = useState<Post | null>(null)
@@ -128,10 +125,12 @@ export default function PostPage() {
           </div>
 
           {/* Content */}
-          <div className="prose lg:prose-xl">
-            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-              {post.content}
-            </ReactMarkdown>
+          <div>
+            {post.content.split("\n\n").map((paragraph, index) => (
+              <p key={index} className="mb-6 text-base leading-relaxed text-[#4a4a4a]">
+                {paragraph}
+              </p>
+            ))}
           </div>
 
           {/* Divider */}
