@@ -42,6 +42,101 @@ export default function EditForm() {
     fetchPost()
   }, [postId, supabase])
 
+  const handlePreview = () => {
+    const previewData = { title, category, excerpt, content, imageUrl, postId }
+    localStorage.setItem("previewData", JSON.stringify(previewData))
+    window.location.href = "/edit/preview"
+  }
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value
+    
+    // Auto-detect ''' on a new line and convert to code block
+    const lines = newContent.split("\n")
+    let updated = false
+    const updatedLines = lines.map((line) => {
+      if (line.trim() === "'''") {
+        updated = true
+        return "```"
+      }
+      return line
+    })
+
+    setContent(updated ? updatedLines.join("\n") : newContent)
+  }
+
+  const insertMarkdown = (before: string, after: string = "", placeholder: string = "") => {
+    const textarea = document.getElementById("content") as HTMLTextAreaElement
+    if (!textarea) return
+
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = content.substring(start, end)
+    const newContent =
+      content.substring(0, start) +
+      before +
+      (selectedText || placeholder) +
+      after +
+      content.substring(end)
+
+    setContent(newContent)
+
+    // 커서 위치 조정
+    setTimeout(() => {
+      const cursorPos = start + before.length + (selectedText ? selectedText.length : placeholder.length)
+      textarea.selectionStart = textarea.selectionEnd = cursorPos
+      textarea.focus()
+    }, 0)
+  }
+
+  const handleContentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Ctrl/Cmd + B: Bold
+    if ((e.ctrlKey || e.metaKey) && e.key === "b") {
+      e.preventDefault()
+      insertMarkdown("**", "**", "bold text")
+    }
+    // Ctrl/Cmd + I: Italic
+    else if ((e.ctrlKey || e.metaKey) && e.key === "i") {
+      e.preventDefault()
+      insertMarkdown("*", "*", "italic text")
+    }
+    // Ctrl/Cmd + Shift + C: Code Block
+    else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "C") {
+      e.preventDefault()
+      insertMarkdown("```\n", "\n```", "code")
+    }
+    // Ctrl/Cmd + H: Heading 1
+    else if ((e.ctrlKey || e.metaKey) && e.key === "h") {
+      e.preventDefault()
+      insertMarkdown("# ", "", "Heading 1")
+    }
+    // Ctrl/Cmd + Alt + H: Heading 2
+    else if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === "h") {
+      e.preventDefault()
+      insertMarkdown("## ", "", "Heading 2")
+    }
+    // Ctrl/Cmd + K: Code inline
+    else if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      e.preventDefault()
+      insertMarkdown("`", "`", "code")
+    }
+    // Ctrl/Cmd + Shift + Q: Quote
+    else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "Q") {
+      e.preventDefault()
+      insertMarkdown("> ", "", "quote")
+    }
+    // Ctrl/Cmd + Shift + L: Link
+    else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "L") {
+      e.preventDefault()
+      insertMarkdown("[", "](url)", "link text")
+    }
+    // Ctrl/Cmd + M: Math/LaTeX
+    else if ((e.ctrlKey || e.metaKey) && e.key === "m") {
+      e.preventDefault()
+      insertMarkdown("$", "$", "x = y")
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -153,17 +248,26 @@ export default function EditForm() {
 
         {/* Content */}
         <div>
-          <label htmlFor="content" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">
-            CONTENT
-          </label>
+          <div className="mb-2 flex items-center justify-between">
+            <label htmlFor="content" className="block text-xs tracking-wider text-[#8b8c89]">
+              CONTENT
+            </label>
+            <div className="text-[10px] text-[#c0c0c0]">
+              Shortcuts: <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+B</kbd> Bold · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+I</kbd> Italic · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+Shift+C</kbd> Code · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+H</kbd> H1
+            </div>
+          </div>
+          <div className="mb-2 text-[10px] text-[#c0c0c0]">
+            More: <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+K</kbd> Inline Code · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+Shift+L</kbd> Link · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+M</kbd> LaTeX · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+Shift+Q</kbd> Quote
+          </div>
           <textarea
             id="content"
             value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Write your post content here..."
+            onChange={handleContentChange}
+            onKeyDown={handleContentKeyDown}
+            placeholder="Write your post content here... (Markdown & LaTeX supported)"
             required
             rows={16}
-            className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm leading-relaxed text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]"
+            className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm leading-relaxed font-mono text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]"
           />
         </div>
 
@@ -190,6 +294,13 @@ export default function EditForm() {
           >
             Cancel
           </a>
+          <button
+            type="button"
+            onClick={handlePreview}
+            className="border border-[#e5e5e5] px-6 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]"
+          >
+            Preview
+          </button>
           <button
             type="submit"
             disabled={isSubmitting}

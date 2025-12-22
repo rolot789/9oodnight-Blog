@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createClient } from "@/lib/supabase/client"
-import type { Post } from "@/lib/types"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
@@ -11,30 +9,25 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import okaidia from "react-syntax-highlighter/dist/esm/styles/prism/okaidia"
 import "katex/dist/katex.min.css"
 
-export default function PostPage() {
-  const [post, setPost] = useState<Post | null>(null)
+interface PreviewData {
+  title: string
+  category: string
+  excerpt: string
+  content: string
+  imageUrl: string
+  postId?: string
+}
+
+export default function PreviewPage() {
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchPost() {
-      const params = new URLSearchParams(window.location.search)
-      const id = params.get("id")
-
-      if (!id) {
-        setIsLoading(false)
-        return
-      }
-
-      const supabase = createClient()
-      const { data, error } = await supabase.from("posts").select("*").eq("id", id).single()
-
-      if (!error && data) {
-        setPost(data as Post)
-      }
-      setIsLoading(false)
+    const data = localStorage.getItem("previewData")
+    if (data) {
+      setPreviewData(JSON.parse(data))
     }
-
-    fetchPost()
+    setIsLoading(false)
   }, [])
 
   if (isLoading) {
@@ -45,13 +38,13 @@ export default function PostPage() {
     )
   }
 
-  if (!post) {
+  if (!previewData) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#fafbfc]">
         <div className="text-center">
-          <h1 className="mb-4 text-2xl font-light tracking-wide text-[#080f18]">Post Not Found</h1>
-          <a href="/" className="text-sm text-[#6096ba] hover:text-[#4a7a9a]">
-            Return Home
+          <h1 className="mb-4 text-2xl font-light tracking-wide text-[#080f18]">Preview Not Available</h1>
+          <a href="/edit" className="text-sm text-[#6096ba] hover:text-[#4a7a9a]">
+            Return to Edit
           </a>
         </div>
       </div>
@@ -88,48 +81,49 @@ export default function PostPage() {
         <div className="mx-auto max-w-3xl px-6">
           {/* Back Link */}
           <a
-            href="/"
+            href={previewData.postId ? `/edit?id=${previewData.postId}` : "/edit"}
             className="mb-8 inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Home
+            Back to Edit
           </a>
 
           {/* Category */}
           <div className="mb-4">
             <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
-              {post.category}
+              {previewData.category}
             </span>
           </div>
 
           {/* Title */}
-          <h1 className="mb-6 text-2xl font-light tracking-wide text-[#080f18] md:text-3xl">{post.title}</h1>
+          <h1 className="mb-6 text-2xl font-light tracking-wide text-[#080f18] md:text-3xl">{previewData.title}</h1>
 
           {/* Meta */}
           <div className="mb-8 flex items-center gap-4 text-[11px] text-[#8b8c89]">
             <span>Admin</span>
             <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
-            <span>
-              {new Date(post.created_at).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </span>
-            <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
-            <span>{post.read_time} read</span>
+            <span>Preview</span>
           </div>
 
           {/* Featured Image */}
-          <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
-            <img
-              src={post.image_url || "/placeholder.svg?height=400&width=800&query=abstract"}
-              alt={post.title}
-              className="h-full w-full object-cover"
-            />
-          </div>
+          {previewData.imageUrl && (
+            <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
+              <img
+                src={previewData.imageUrl}
+                alt={previewData.title}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
+
+          {/* Excerpt */}
+          {previewData.excerpt && (
+            <div className="mb-8 text-sm text-[#8b8c89]">
+              {previewData.excerpt}
+            </div>
+          )}
 
           {/* Content */}
           <div className="space-y-4 text-base text-[#080f18]">
@@ -137,13 +131,13 @@ export default function PostPage() {
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
               components={{
-                h1: ({ node, ...props }) => <h1 className="mb-4 mt-8 text-3xl font-bold tracking-tight" {...props} />,
-                h2: ({ node, ...props }) => <h2 className="mb-3 mt-6 text-2xl font-bold tracking-tight" {...props} />,
-                h3: ({ node, ...props }) => <h3 className="mb-3 mt-5 text-xl font-bold tracking-tight" {...props} />,
-                h4: ({ node, ...props }) => <h4 className="mb-2 mt-4 text-lg font-bold tracking-tight" {...props} />,
-                p: ({ node, ...props }) => <p className="mb-4 leading-7" {...props} />,
-                strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
-                em: ({ node, ...props }) => <em className="italic" {...props} />,
+                h1: ({ node, ...props }) => <h1 className="mb-4 mt-8 text-3xl font-bold tracking-tight\" {...props} />,
+                h2: ({ node, ...props }) => <h2 className="mb-3 mt-6 text-2xl font-bold tracking-tight\" {...props} />,
+                h3: ({ node, ...props }) => <h3 className="mb-3 mt-5 text-xl font-bold tracking-tight\" {...props} />,
+                h4: ({ node, ...props }) => <h4 className="mb-2 mt-4 text-lg font-bold tracking-tight\" {...props} />,
+                p: ({ node, ...props }) => <p className="mb-4 leading-7\" {...props} />,
+                strong: ({ node, ...props }) => <strong className="font-bold\" {...props} />,
+                em: ({ node, ...props }) => <em className="italic\" {...props} />,
                 code: ({ node, inline, className, children, ...props }) => {
                   const match = /language-(\w+)/.exec(className || "");
                   return !inline && match ? (
@@ -171,18 +165,18 @@ export default function PostPage() {
                     </code>
                   );
                 },
-                blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-[#6096ba] bg-[#f5f5f5] py-2 pl-4 italic text-[#555]" {...props} />,
-                ul: ({ node, ...props }) => <ul className="mb-4 list-inside list-disc space-y-2 pl-4" {...props} />,
-                ol: ({ node, ...props }) => <ol className="mb-4 list-inside list-decimal space-y-2 pl-4" {...props} />,
-                li: ({ node, ...props }) => <li className="ml-2" {...props} />,
-                a: ({ node, ...props }) => <a className="text-[#6096ba] underline hover:text-[#4a7a9a]" {...props} />,
-                table: ({ node, ...props }) => <table className="mb-4 w-full border-collapse border border-[#e5e5e5]" {...props} />,
-                tr: ({ node, ...props }) => <tr className="border border-[#e5e5e5]" {...props} />,
-                td: ({ node, ...props }) => <td className="border border-[#e5e5e5] px-4 py-2" {...props} />,
-                th: ({ node, ...props }) => <th className="border border-[#e5e5e5] bg-[#f0f0f0] px-4 py-2 font-bold" {...props} />,
+                blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-[#6096ba] bg-[#f5f5f5] py-2 pl-4 italic text-[#555]\" {...props} />,
+                ul: ({ node, ...props }) => <ul className="mb-4 list-inside list-disc space-y-2 pl-4\" {...props} />,
+                ol: ({ node, ...props }) => <ol className="mb-4 list-inside list-decimal space-y-2 pl-4\" {...props} />,
+                li: ({ node, ...props }) => <li className="ml-2\" {...props} />,
+                a: ({ node, ...props }) => <a className="text-[#6096ba] underline hover:text-[#4a7a9a]\" {...props} />,
+                table: ({ node, ...props }) => <table className="mb-4 w-full border-collapse border border-[#e5e5e5]\" {...props} />,
+                tr: ({ node, ...props }) => <tr className="border border-[#e5e5e5]\" {...props} />,
+                td: ({ node, ...props }) => <td className="border border-[#e5e5e5] px-4 py-2\" {...props} />,
+                th: ({ node, ...props }) => <th className="border border-[#e5e5e5] bg-[#f0f0f0] px-4 py-2 font-bold\" {...props} />,
               }}
             >
-              {post.content}
+              {previewData.content}
             </ReactMarkdown>
           </div>
 

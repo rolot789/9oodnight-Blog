@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import type { Post } from "@/lib/types"
-import { cookies } from "next/headers"
 import Link from "next/link"
+import LogoutButton from "@/components/LogoutButton"
 
 export default async function Page() {
   const supabase = await createClient()
@@ -35,11 +35,7 @@ export default async function Page() {
               ABOUT
             </a>
             {session ? (
-              <form action="/auth/signout" method="post">
-                <button type="submit" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-                  LOGOUT
-                </button>
-              </form>
+              <LogoutButton />
             ) : (
               <Link href="/login" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
                 LOGIN
