@@ -4,7 +4,6 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import type { Post } from "@/lib/types"
 
 const categories = ["Mathematics", "Development", "DevOps", "Computer Science", "Research"]
 
@@ -12,7 +11,6 @@ export default function EditForm() {
   const searchParams = useSearchParams()
   const postId = searchParams.get("id")
 
-  const [post, setPost] = useState<Post | null>(null)
   const [title, setTitle] = useState("")
   const [category, setCategory] = useState("")
   const [excerpt, setExcerpt] = useState("")
@@ -22,6 +20,7 @@ export default function EditForm() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   const supabase = createClient()
+  const isEditMode = postId !== null
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -30,7 +29,6 @@ export default function EditForm() {
         if (error) {
           setMessage({ type: "error", text: `Error: ${error.message}` })
         } else if (data) {
-          setPost(data)
           setTitle(data.title)
           setCategory(data.category)
           setExcerpt(data.excerpt)
@@ -39,8 +37,10 @@ export default function EditForm() {
         }
       }
     }
-    fetchPost()
-  }, [postId, supabase])
+    if (isEditMode) {
+      fetchPost()
+    }
+  }, [postId, isEditMode, supabase])
 
   const handlePreview = () => {
     const previewData = { title, category, excerpt, content, imageUrl, postId }
@@ -142,27 +142,39 @@ export default function EditForm() {
     setIsSubmitting(true)
     setMessage(null)
 
-    if (!postId) {
-      setMessage({ type: "error", text: "No post ID provided." })
-      setIsSubmitting(false)
-      return
+    const postData = {
+      title,
+      category,
+      excerpt,
+      content,
+      image_url: imageUrl || null,
+      read_time: `${Math.max(1, Math.ceil(content.split(" ").length / 200))} min`,
     }
 
-    const { error } = await supabase
-      .from("posts")
-      .update({
-        title,
-        category,
-        excerpt,
-        content,
-        image_url: imageUrl || null,
-      })
-      .eq("id", postId)
+    let error
+
+    if (isEditMode) {
+      const { error: updateError } = await supabase.from("posts").update(postData).eq("id", postId)
+      error = updateError
+    } else {
+      const { error: insertError } = await supabase.from("posts").insert(postData)
+      error = insertError
+    }
 
     if (error) {
       setMessage({ type: "error", text: `Error: ${error.message}` })
     } else {
-      setMessage({ type: "success", text: "Post updated successfully!" })
+      setMessage({
+        type: "success",
+        text: `Post ${isEditMode ? "updated" : "published"} successfully!`,
+      })
+      if (!isEditMode) {
+        setTitle("")
+        setCategory("")
+        setExcerpt("")
+        setContent("")
+        setImageUrl("")
+      }
     }
 
     setIsSubmitting(false)
@@ -181,7 +193,7 @@ export default function EditForm() {
         Back to Home
       </a>
 
-      <h1 className="mb-8 text-2xl font-light tracking-wide text-[#080f18]">EDIT POST</h1>
+      <h1 className="mb-8 text-2xl font-light tracking-wide text-[#080f18]">{isEditMode ? "EDIT POST" : "CREATE NEW POST"}</h1>
 
       {/* Message */}
       {message && (
@@ -306,7 +318,13 @@ export default function EditForm() {
             disabled={isSubmitting}
             className="bg-[#080f18] px-8 py-3 text-xs tracking-wider text-white transition-colors hover:bg-[#1a2632] disabled:opacity-50"
           >
-            {isSubmitting ? "Updating..." : "Update Post"}
+            {isSubmitting
+              ? isEditMode
+                ? "Updating..."
+                : "Publishing..."
+              : isEditMode
+                ? "Update Post"
+                : "Publish"}
           </button>
         </div>
       </form>

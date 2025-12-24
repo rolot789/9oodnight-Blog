@@ -1,82 +1,52 @@
-"use client"
+import { createClient } from "@/lib/supabase/server"
+import { notFound } from "next/navigation"
+import { compileMDXContent } from "@/lib/mdx"
+import { mdxComponents } from "@/components/mdx-components"
+import Link from "next/link"
 
-import { useState, useEffect } from "react"
-import { getMDXSource } from "@/app/actions"
-import MDXPreviewRenderer from "@/components/mdx-preview-renderer"
-
-interface PreviewData {
-  title: string
-  category: string
-  excerpt: string
-  content: string
-  imageUrl: string
-  postId?: string
+interface PostPageProps {
+  params: Promise<{
+    id: string
+  }>
 }
 
-export default function PreviewPage() {
-  const [previewData, setPreviewData] = useState<PreviewData | null>(null)
-  const [mdxSource, setMdxSource] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
+export default async function PostPage({ params }: PostPageProps) {
+  const { id } = await params
+  const supabase = await createClient()
+  
+  const { data: post, error } = await supabase
+    .from("posts")
+    .select("*")
+    .eq("id", id)
+    .single()
 
-  useEffect(() => {
-    async function loadPreview() {
-      const data = localStorage.getItem("previewData")
-      if (data) {
-        const parsed = JSON.parse(data)
-        setPreviewData(parsed)
-
-        if (parsed.content) {
-          const { data: source } = await getMDXSource(parsed.content)
-          setMdxSource(source)
-        }
-      }
-      setIsLoading(false)
-    }
-    loadPreview()
-  }, [])
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fafbfc]">
-        <p className="text-sm text-[#8b8c89]">Loading...</p>
-      </div>
-    )
+  if (error || !post) {
+    notFound()
   }
 
-  if (!previewData) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fafbfc]">
-        <div className="text-center">
-          <h1 className="mb-4 text-2xl font-light tracking-wide text-[#080f18]">Preview Not Available</h1>
-          <a href="/edit" className="text-sm text-[#6096ba] hover:text-[#4a7a9a]">
-            Return to Edit
-          </a>
-        </div>
-      </div>
-    )
-  }
+  const { content } = await compileMDXContent(post.content, mdxComponents)
 
   return (
     <div className="min-h-screen bg-[#fafbfc]">
       {/* Header */}
       <header className="w-full border-b border-[#e5e5e5] bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <a href="/" className="text-sm font-light tracking-[0.3em] text-[#080f18]">
+          <Link href="/" className="text-sm font-light tracking-[0.3em] text-[#080f18]">
             MY PORTFOLIO
-          </a>
+          </Link>
           <nav className="flex items-center gap-8">
-            <a href="/" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
+            <Link href="/" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
               HOME
-            </a>
-            <a href="/dev" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
+            </Link>
+            <Link href="/dev" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
               DEV
-            </a>
-            <a href="/math" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
+            </Link>
+            <Link href="/math" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
               MATH
-            </a>
-            <a href="/about" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
+            </Link>
+            <Link href="/about" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
               ABOUT
-            </a>
+            </Link>
           </nav>
         </div>
       </header>
@@ -85,58 +55,54 @@ export default function PreviewPage() {
       <article className="w-full py-12">
         <div className="mx-auto max-w-3xl px-6">
           {/* Back Link */}
-          <a
-            href={previewData.postId ? `/edit?id=${previewData.postId}` : "/edit"}
+          <Link
+            href="/"
             className="mb-8 inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Edit
-          </a>
+            Back to Home
+          </Link>
 
           {/* Category */}
           <div className="mb-4">
             <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
-              {previewData.category}
+              {post.category}
             </span>
           </div>
 
           {/* Title */}
-          <h1 className="mb-6 text-2xl font-light tracking-wide text-[#080f18] md:text-3xl">{previewData.title}</h1>
+          <h1 className="mb-6 text-2xl font-light tracking-wide text-[#080f18] md:text-3xl">{post.title}</h1>
 
           {/* Meta */}
           <div className="mb-8 flex items-center gap-4 text-[11px] text-[#8b8c89]">
             <span>Admin</span>
             <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
-            <span>Preview</span>
+            <span>
+              {new Date(post.created_at).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+            <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
+            <span>{post.read_time}</span>
           </div>
 
           {/* Featured Image */}
-          {previewData.imageUrl && (
-            <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
-              <img
-                src={previewData.imageUrl}
-                alt={previewData.title}
-                className="h-full w-full object-cover"
-              />
-            </div>
-          )}
-
-          {/* Excerpt */}
-          {previewData.excerpt && (
-            <div className="mb-8 text-sm text-[#8b8c89]">
-              {previewData.excerpt}
-            </div>
-          )}
+          <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={post.image_url || "/placeholder.svg?height=400&width=800&query=abstract"}
+              alt={post.title}
+              className="h-full w-full object-cover"
+            />
+          </div>
 
           {/* Content */}
           <div className="space-y-4 text-base text-[#080f18]">
-            {mdxSource ? (
-              <MDXPreviewRenderer source={mdxSource} />
-            ) : (
-              <p>Loading content preview...</p>
-            )}
+            {content}
           </div>
 
           {/* Divider */}

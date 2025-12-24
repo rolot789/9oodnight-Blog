@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-/* @import "shadcn/tailwind.css"; */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -118,10 +117,50 @@
 }
 
 @layer base {
-* {
-  @apply border-border outline-ring/50;
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
-body {
-  @apply bg-background text-foreground;
+
+/* Rehype Pretty Code Styling - Apply to PRE directly */
+pre {
+  padding: 16px !important;
+  border-radius: 8px !important;
+  overflow-x: auto !important;
+  margin: 1.5rem 0 !important;
 }
+
+pre > code {
+  display: grid !important;
+  counter-reset: line;
+  padding: 0 !important;
+}
+
+pre > code > [data-line] {
+  padding: 0 0.5rem;
+  border-left: 3px solid transparent;
+}
+
+pre > code > [data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 1.5rem;
+  margin-right: 1.5rem;
+  text-align: right;
+  color: #636d83; /* Line number color */
+  user-select: none;
+  font-size: 0.8rem;
+}
+
+/* Ensure inline code isn't affected */
+:not(pre) > code {
+  background-color: #f3f4f6;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.875em;
+  color: #e83e8c;
 }
