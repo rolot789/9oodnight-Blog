@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import type { Post } from "@/lib/types"
 import Link from "next/link"
-import LogoutButton from "@/components/LogoutButton"
 
 const CATEGORIES = ["All", "Mathematics", "Development", "DevOps", "Computer Science", "Research"]
 
@@ -31,37 +30,6 @@ export default async function Page({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen bg-[#fafbfc]">
-      {/* Header */}
-      <header className="w-full border-b border-[#e5e5e5] bg-white sticky top-0 z-10">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <a href="/" className="text-sm font-light tracking-[0.3em] text-[#080f18]">
-            MY PORTFOLIO
-          </a>
-          <nav className="flex items-center gap-8">
-            <a href="/" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-              HOME
-            </a>
-            <a href="/dev" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-              DEV
-            </a>
-            <a href="/math" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-              MATH
-            </a>
-            <a href="/about" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-              ABOUT
-            </a>
-            {session ? (
-              <LogoutButton />
-            ) : (
-              <Link href="/login" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-                LOGIN
-              </Link>
-            )}
-          </nav>
-        </div>
-      </header>
-
-
       {/* Hero */}
       <section className="w-full bg-white py-12 border-b border-[#e5e5e5]">
         <div className="mx-auto max-w-6xl px-6">

@@ -4,29 +4,6 @@ import EditForm from "./EditForm"
 export default function EditPage() {
   return (
     <div className="min-h-screen bg-[#fafbfc]">
-      {/* Header */}
-      <header className="w-full border-b border-[#e5e5e5] bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <a href="/" className="text-sm font-light tracking-[0.3em] text-[#080f18]">
-            MY PORTFOLIO
-          </a>
-          <nav className="flex items-center gap-8">
-            <a href="/" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-              HOME
-            </a>
-            <a href="/dev" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-              DEV
-            </a>
-            <a href="/math" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-              MATH
-            </a>
-            <a href="/about" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-              ABOUT
-            </a>
-          </nav>
-        </div>
-      </header>
-
       {/* Editor */}
       <main className="w-full py-12">
         <Suspense fallback={<div className="text-center">Loading...</div>}>

@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Noto_Sans } from "next/font/google"
 import "./globals.css"
 import "katex/dist/katex.min.css";
+import Header from "@/components/Header"
 
 const fontSans = Noto_Sans({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -20,7 +21,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={fontSans.variable}>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <Header />
+        {children}
+      </body>
     </html>
   )
 }
