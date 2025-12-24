@@ -184,6 +184,12 @@ export default function PostPage() {
             >
               {post.content}
             </ReactMarkdown>
+          <div>
+            {post.content.split("\n\n").map((paragraph, index) => (
+              <p key={index} className="mb-6 text-base leading-relaxed text-[#4a4a4a]">
+                {paragraph}
+              </p>
+            ))}
           </div>
 
           {/* Divider */}
