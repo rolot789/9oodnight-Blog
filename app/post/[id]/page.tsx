@@ -87,6 +87,30 @@ export default async function PostPage({ params }: PostPageProps) {
             {content}
           </div>
 
+          {/* Attachments */}
+          {post.attachments && post.attachments.length > 0 && (
+            <div className="mt-12">
+              <h3 className="mb-4 text-sm font-bold tracking-widest text-[#080f18]">ATTACHMENTS</h3>
+              <div className="space-y-3">
+                {post.attachments.map((file: { url: string, filename: string, filePath: string }, index: number) => (
+                  <a
+                    key={file.filePath || index}
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between rounded border border-[#e5e5e5] bg-white p-4 transition-colors hover:bg-gray-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Paperclip className="h-4 w-4 text-[#8b8c89]" />
+                      <span className="text-sm text-[#080f18]">{file.filename}</span>
+                    </div>
+                    <Download className="h-4 w-4 text-[#8b8c89]" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ToC Sidebar (Absolute positioned relative to main content) */}
           <aside className="hidden xl:block absolute left-full top-0 ml-12 h-full">
              <TableOfContents />

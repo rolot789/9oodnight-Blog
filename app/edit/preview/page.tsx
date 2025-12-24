@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { getMDXSource } from "@/app/actions"
 import MDXPreviewRenderer from "@/components/mdx-preview-renderer"
 import TableOfContents from "@/components/TableOfContents"
+import { Download, Paperclip } from "lucide-react"
 
 interface PreviewData {
   title: string
@@ -11,6 +12,7 @@ interface PreviewData {
   excerpt: string
   content: string
   imageUrl: string
+  attachments: { filename: string; url: string; filePath: string }[]
   postId?: string
 }
 
@@ -35,7 +37,7 @@ export default function PreviewPage() {
     }
     loadPreview()
   }, [])
-
+  
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#fafbfc]">
@@ -120,6 +122,30 @@ export default function PreviewPage() {
               <p>Loading content preview...</p>
             )}
           </div>
+
+          {/* Attachments */}
+          {previewData.attachments && previewData.attachments.length > 0 && (
+            <div className="mt-12">
+              <h3 className="mb-4 text-sm font-bold tracking-widest text-[#080f18]">ATTACHMENTS</h3>
+              <div className="space-y-3">
+                {previewData.attachments.map((file, index) => (
+                  <a
+                    key={file.filePath || index}
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between rounded border border-[#e5e5e5] bg-white p-4 transition-colors hover:bg-gray-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Paperclip className="h-4 w-4 text-[#8b8c89]" />
+                      <span className="text-sm text-[#080f18]">{file.filename}</span>
+                    </div>
+                    <Download className="h-4 w-4 text-[#8b8c89]" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ToC Sidebar (Absolute) */}
           <aside className="hidden xl:block absolute left-full top-0 ml-12 h-full">

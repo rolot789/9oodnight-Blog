@@ -14,8 +14,15 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog"
+import { Paperclip, Trash2, UploadCloud } from "lucide-react"
 
 const categories = ["Mathematics", "Development", "DevOps", "Computer Science", "Research"]
+
+interface Attachment {
+  filename: string
+  url: string
+  filePath: string
+}
 
 export default function EditForm() {
   const searchParams = useSearchParams()
@@ -27,6 +34,8 @@ export default function EditForm() {
   const [excerpt, setExcerpt] = useState("")
   const [content, setContent] = useState("")
   const [imageUrl, setImageUrl] = useState("")
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
@@ -36,7 +45,7 @@ export default function EditForm() {
   useEffect(() => {
     const fetchPost = async () => {
       if (postId) {
-        const { data, error } = await supabase.from("posts").select("*").eq("id", postId).single()
+        const { data, error } = await supabase.from("posts").select("* ").eq("id", postId).single()
         if (error) {
           setMessage({ type: "error", text: `Error: ${error.message}` })
         } else if (data) {
@@ -45,6 +54,7 @@ export default function EditForm() {
           setExcerpt(data.excerpt)
           setContent(data.content)
           setImageUrl(data.image_url || "")
+          setAttachments(data.attachments || [])
         }
       }
     }
@@ -54,7 +64,7 @@ export default function EditForm() {
   }, [postId, isEditMode, supabase])
 
   const handlePreview = () => {
-    const previewData = { title, category, excerpt, content, imageUrl, postId }
+    const previewData = { title, category, excerpt, content, imageUrl, attachments, postId }
     localStorage.setItem("previewData", JSON.stringify(previewData))
     window.location.href = "/edit/preview"
   }
@@ -64,6 +74,16 @@ export default function EditForm() {
 
     setIsSubmitting(true)
     setMessage(null)
+
+    if (attachments.length > 0) {
+      const filePaths = attachments.map(file => file.filePath);
+      const { error: storageError } = await supabase.storage.from('files').remove(filePaths);
+      if (storageError) {
+        setMessage({ type: "error", text: `Failed to delete attachments: ${storageError.message}` });
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     const { error } = await supabase.from("posts").delete().eq("id", postId)
 
@@ -76,10 +96,40 @@ export default function EditForm() {
     }
   }
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) {
+      return
+    }
+    const file = e.target.files[0]
+    const filePath = `${Date.now()}_${file.name}`
+
+    setIsUploading(true)
+    setMessage(null)
+
+    const { error } = await supabase.storage.from("files").upload(filePath, file)
+
+    if (error) {
+      setMessage({ type: "error", text: `Upload error: ${error.message}` })
+    } else {
+      const { data: { publicUrl } } = supabase.storage.from("files").getPublicUrl(filePath)
+      setAttachments([...attachments, { filename: file.name, url: publicUrl, filePath: filePath }])
+    }
+    setIsUploading(false)
+  }
+
+  const handleFileDelete = async (filePathToDelete: string) => {
+    setAttachments(attachments.filter(att => att.filePath !== filePathToDelete));
+
+    const { error } = await supabase.storage.from('files').remove([filePathToDelete]);
+    
+    if (error) {
+      setMessage({ type: "error", text: `Failed to delete file: ${error.message}` });
+    }
+  }
+
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value
     
-    // Auto-detect ''' on a new line and convert to code block
     const lines = newContent.split("\n")
     let updated = false
     const updatedLines = lines.map((line) => {
@@ -109,7 +159,6 @@ export default function EditForm() {
 
     setContent(newContent)
 
-    // 커서 위치 조정
     setTimeout(() => {
       const cursorPos = start + before.length + (selectedText ? selectedText.length : placeholder.length)
       textarea.selectionStart = textarea.selectionEnd = cursorPos
@@ -118,47 +167,38 @@ export default function EditForm() {
   }
 
   const handleContentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Ctrl/Cmd + B: Bold
     if ((e.ctrlKey || e.metaKey) && e.key === "b") {
       e.preventDefault()
       insertMarkdown("**", "**", "bold text")
     }
-    // Ctrl/Cmd + I: Italic
     else if ((e.ctrlKey || e.metaKey) && e.key === "i") {
       e.preventDefault()
       insertMarkdown("*", "*", "italic text")
     }
-    // Ctrl/Cmd + Shift + C: Code Block
     else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "C") {
       e.preventDefault()
       insertMarkdown("```\n", "\n```", "code")
     }
-    // Ctrl/Cmd + H: Heading 1
     else if ((e.ctrlKey || e.metaKey) && e.key === "h") {
       e.preventDefault()
       insertMarkdown("# ", "", "Heading 1")
     }
-    // Ctrl/Cmd + Alt + H: Heading 2
     else if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === "h") {
       e.preventDefault()
       insertMarkdown("## ", "", "Heading 2")
     }
-    // Ctrl/Cmd + K: Code inline
     else if ((e.ctrlKey || e.metaKey) && e.key === "k") {
       e.preventDefault()
       insertMarkdown("`", "`", "code")
     }
-    // Ctrl/Cmd + Shift + Q: Quote
     else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "Q") {
       e.preventDefault()
       insertMarkdown("> ", "", "quote")
     }
-    // Ctrl/Cmd + Shift + L: Link
     else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "L") {
       e.preventDefault()
       insertMarkdown("[", "](url)", "link text")
     }
-    // Ctrl/Cmd + M: Math/LaTeX
     else if ((e.ctrlKey || e.metaKey) && e.key === "m") {
       e.preventDefault()
       insertMarkdown("$", "$", "x = y")
@@ -176,6 +216,7 @@ export default function EditForm() {
       excerpt,
       content,
       image_url: imageUrl || null,
+      attachments,
       read_time: `${Math.max(1, Math.ceil(content.split(" ").length / 200))} min`,
     }
 
@@ -202,6 +243,7 @@ export default function EditForm() {
         setExcerpt("")
         setContent("")
         setImageUrl("")
+        setAttachments([])
       }
     }
 
@@ -210,7 +252,6 @@ export default function EditForm() {
 
   return (
     <div className="mx-auto max-w-3xl px-6">
-      {/* Back Link */}
       <a
         href="/"
         className="mb-8 inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
@@ -223,7 +264,6 @@ export default function EditForm() {
 
       <h1 className="mb-8 text-2xl font-light tracking-wide text-[#080f18]">{isEditMode ? "EDIT POST" : "CREATE NEW POST"}</h1>
 
-      {/* Message */}
       {message && (
         <div
           className={`mb-6 p-4 text-sm ${message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}
@@ -233,162 +273,90 @@ export default function EditForm() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Title */}
         <div>
-          <label htmlFor="title" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">
-            TITLE
-          </label>
-          <input
-            type="text"
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter post title..."
-            required
-            className="w-full border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]"
-          />
+          <label htmlFor="title" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">TITLE</label>
+          <input type="text" id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter post title..." required className="w-full border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
         </div>
-
-        {/* Category */}
         <div>
-          <label htmlFor="category" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">
-            CATEGORY
-          </label>
-          <select
-            id="category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            required
-            className="w-full appearance-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] outline-none transition-colors focus:border-[#6096ba]"
-          >
+          <label htmlFor="category" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">CATEGORY</label>
+          <select id="category" value={category} onChange={(e) => setCategory(e.target.value)} required className="w-full appearance-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] outline-none transition-colors focus:border-[#6096ba]">
             <option value="">Select a category...</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
+            {categories.map((cat) => ( <option key={cat} value={cat}>{cat}</option> ))}
           </select>
         </div>
-
-        {/* Excerpt */}
         <div>
-          <label htmlFor="excerpt" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">
-            EXCERPT
-          </label>
-          <textarea
-            id="excerpt"
-            value={excerpt}
-            onChange={(e) => setExcerpt(e.target.value)}
-            placeholder="Write a short summary..."
-            required
-            rows={2}
-            className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]"
-          />
+          <label htmlFor="excerpt" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">EXCERPT</label>
+          <textarea id="excerpt" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="Write a short summary..." required rows={2} className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
         </div>
-
-        {/* Content */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <label htmlFor="content" className="block text-xs tracking-wider text-[#8b8c89]">
-              CONTENT
-            </label>
-            <div className="text-[10px] text-[#c0c0c0]">
-              Shortcuts: <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+B</kbd> Bold · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+I</kbd> Italic · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+Shift+C</kbd> Code · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+H</kbd> H1
-            </div>
+            <label htmlFor="content" className="block text-xs tracking-wider text-[#8b8c89]">CONTENT</label>
+            <div className="text-[10px] text-[#c0c0c0]">Shortcuts: <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+B</kbd> Bold · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+I</kbd> Italic · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+Shift+C</kbd> Code · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+H</kbd> H1</div>
           </div>
-          <div className="mb-2 text-[10px] text-[#c0c0c0]">
-            More: <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+K</kbd> Inline Code · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+Shift+L</kbd> Link · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+M</kbd> LaTeX · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+Shift+Q</kbd> Quote
-          </div>
-          <textarea
-            id="content"
-            value={content}
-            onChange={handleContentChange}
-            onKeyDown={handleContentKeyDown}
-            placeholder="Write your post content here... (Markdown & LaTeX supported)"
-            required
-            rows={16}
-            className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm leading-relaxed font-mono text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]"
-          />
+          <div className="mb-2 text-[10px] text-[#c0c0c0]">More: <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+K</kbd> Inline Code · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+Shift+L</kbd> Link · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+M</kbd> LaTeX · <kbd className="rounded bg-[#f0f0f0] px-1">Ctrl+Shift+Q</kbd> Quote</div>
+          <textarea id="content" value={content} onChange={handleContentChange} onKeyDown={handleContentKeyDown} placeholder="Write your post content here... (Markdown & LaTeX supported)" required rows={16} className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm leading-relaxed font-mono text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
         </div>
-
-        {/* Image URL */}
         <div>
-          <label htmlFor="imageUrl" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">
-            FEATURED IMAGE URL (optional)
-          </label>
-          <input
-            type="text"
-            id="imageUrl"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://example.com/image.jpg"
-            className="w-full border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]"
-          />
+          <label htmlFor="imageUrl" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">FEATURED IMAGE URL (optional)</label>
+          <input type="text" id="imageUrl" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/image.jpg" className="w-full border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
         </div>
 
-        {/* Actions */}
+        <div>
+          <label className="mb-2 block text-xs tracking-wider text-[#8b8c89]">ATTACHMENTS</label>
+          <div className="space-y-4">
+            {attachments.length > 0 && attachments.map((file) => (
+              <div key={file.filePath} className="flex items-center justify-between rounded border border-[#e5e5e5] bg-white px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Paperclip className="h-4 w-4 text-[#8b8c89]" />
+                  <span className="text-sm text-[#080f18]">{file.filename}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleFileDelete(file.filePath)}
+                  className="text-[#8b8c89] transition-colors hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            {attachments.length === 0 && !isUploading &&(
+              <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
+                <UploadCloud className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-[#080f18]">No files attached</h3>
+                <p className="mt-1 text-sm text-[#8b8c89]">Get started by uploading a file.</p>
+              </div>
+            )}
+            <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-[#e5e5e5] bg-white px-4 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#6096ba] hover:text-[#6096ba]">
+              <Paperclip className="h-4 w-4" />
+              {isUploading ? "Uploading..." : "ADD FILE"}
+              <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+            </label>
+          </div>
+        </div>
+        
         <div className="flex items-center justify-end gap-4 pt-4">
           {isEditMode && (
             <Dialog>
               <DialogTrigger asChild>
-                <button
-                  type="button"
-                  className="mr-auto text-xs tracking-wider text-red-600 transition-colors hover:text-red-800 hover:underline"
-                >
-                  DELETE POST
-                </button>
+                <button type="button" className="mr-auto text-xs tracking-wider text-red-600 transition-colors hover:text-red-800 hover:underline">DELETE POST</button>
               </DialogTrigger>
-              <DialogContent showCloseButton={false}>
+              <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Delete Post</DialogTitle>
-                  <DialogDescription>
-                    Are you sure? This action cannot be undone.
-                  </DialogDescription>
+                  <DialogDescription>Are you sure? This action cannot be undone.</DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
                   <DialogClose asChild>
-                    <button className="border border-[#e5e5e5] px-4 py-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]">
-                      Cancel
-                    </button>
+                    <button className="border border-[#e5e5e5] px-4 py-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]">Cancel</button>
                   </DialogClose>
-                  <button
-                    onClick={handleDelete}
-                    disabled={isSubmitting}
-                    className="bg-red-600 px-4 py-2 text-xs tracking-wider text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                  >
-                    {isSubmitting ? "Deleting..." : "Delete"}
-                  </button>
+                  <button onClick={handleDelete} disabled={isSubmitting} className="bg-red-600 px-4 py-2 text-xs tracking-wider text-white transition-colors hover:bg-red-700 disabled:opacity-50">{isSubmitting ? "Deleting..." : "Delete"}</button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           )}
-
-          <a
-            href="/"
-            className="border border-[#e5e5e5] px-6 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]"
-          >
-            Cancel
-          </a>
-          <button
-            type="button"
-            onClick={handlePreview}
-            className="border border-[#e5e5e5] px-6 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]"
-          >
-            Preview
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="bg-[#080f18] px-8 py-3 text-xs tracking-wider text-white transition-colors hover:bg-[#1a2632] disabled:opacity-50"
-          >
-            {isSubmitting
-              ? isEditMode
-                ? "Updating..."
-                : "Publishing..."
-              : isEditMode
-                ? "Update Post"
-                : "Publish"}
-          </button>
+          <a href="/" className="border border-[#e5e5e5] px-6 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]">Cancel</a>
+          <button type="button" onClick={handlePreview} className="border border-[#e5e5e5] px-6 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]">Preview</button>
+          <button type="submit" disabled={isSubmitting || isUploading} className="bg-[#080f18] px-8 py-3 text-xs tracking-wider text-white transition-colors hover:bg-[#1a2632] disabled:opacity-50">{isSubmitting ? isEditMode ? "Updating..." : "Publishing..." : isEditMode ? "Update Post" : "Publish"}</button>
         </div>
       </form>
     </div>
