@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { compileMDXContent } from "@/lib/mdx"
 import { mdxComponents } from "@/components/mdx-components"
 import Link from "next/link"
+import TableOfContents from "@/components/TableOfContents"
 
 interface PostPageProps {
   params: Promise<{
@@ -53,69 +54,81 @@ export default async function PostPage({ params }: PostPageProps) {
 
       {/* Post Content */}
       <article className="w-full py-12">
-        <div className="mx-auto max-w-3xl px-6">
-          {/* Back Link */}
-          <Link
-            href="/"
-            className="mb-8 inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Home
-          </Link>
+        <div className="mx-auto max-w-3xl px-6 relative">
+          
+          {/* Header Section (Title, Meta, Image) */}
+          <div>
+            {/* Back Link */}
+            <Link
+              href="/"
+              className="mb-8 inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Home
+            </Link>
 
-          {/* Category */}
-          <div className="mb-4">
-            <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
-              {post.category}
-            </span>
+            {/* Category */}
+            <div className="mb-4">
+              <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
+                {post.category}
+              </span>
+            </div>
+
+            {/* Title */}
+            <h1 className="mb-6 text-2xl font-light tracking-wide text-[#080f18] md:text-3xl">{post.title}</h1>
+
+            {/* Meta */}
+            <div className="mb-8 flex items-center gap-4 text-[11px] text-[#8b8c89]">
+              <span>Admin</span>
+              <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
+              <span>
+                {new Date(post.created_at).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+              <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
+              <span>{post.read_time}</span>
+            </div>
+
+            {/* Featured Image */}
+            <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.image_url || "/placeholder.svg?height=400&width=800&query=abstract"}
+                alt={post.title}
+                className="h-full w-full object-cover"
+              />
+            </div>
           </div>
 
-          {/* Title */}
-          <h1 className="mb-6 text-2xl font-light tracking-wide text-[#080f18] md:text-3xl">{post.title}</h1>
-
-          {/* Meta */}
-          <div className="mb-8 flex items-center gap-4 text-[11px] text-[#8b8c89]">
-            <span>Admin</span>
-            <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
-            <span>
-              {new Date(post.created_at).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </span>
-            <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
-            <span>{post.read_time}</span>
-          </div>
-
-          {/* Featured Image */}
-          <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={post.image_url || "/placeholder.svg?height=400&width=800&query=abstract"}
-              alt={post.title}
-              className="h-full w-full object-cover"
-            />
-          </div>
-
-          {/* Content */}
+          {/* Main Content */}
           <div className="space-y-4 text-base text-[#080f18]">
             {content}
           </div>
 
-          {/* Divider */}
-          <div className="my-12 border-t border-[#e5e5e5]"></div>
+          {/* ToC Sidebar (Absolute positioned relative to main content) */}
+          <aside className="hidden xl:block absolute left-full top-0 ml-12 h-full">
+             <TableOfContents />
+          </aside>
 
-          {/* Author Section */}
-          <div className="flex items-center gap-4 rounded bg-white p-6 shadow-sm">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#080f18] text-lg font-light text-white">
-              A
-            </div>
-            <div>
-              <p className="text-sm font-medium tracking-wide text-[#080f18]">Admin</p>
-              <p className="text-xs text-[#8b8c89]">Developer & Mathematician</p>
+          {/* Footer Section (Author) */}
+          <div>
+            {/* Divider */}
+            <div className="my-12 border-t border-[#e5e5e5]"></div>
+
+            {/* Author Section */}
+            <div className="flex items-center gap-4 rounded bg-white p-6 shadow-sm">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#080f18] text-lg font-light text-white">
+                A
+              </div>
+              <div>
+                <p className="text-sm font-medium tracking-wide text-[#080f18]">Admin</p>
+                <p className="text-xs text-[#8b8c89]">Developer & Mathematician</p>
+              </div>
             </div>
           </div>
         </div>

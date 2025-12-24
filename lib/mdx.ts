@@ -1,6 +1,7 @@
 import { compileMDX } from 'next-mdx-remote/rsc'
 import { serialize } from 'next-mdx-remote/serialize'
 import rehypePrettyCode from 'rehype-pretty-code'
+import rehypeSlug from 'rehype-slug'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -9,6 +10,7 @@ import rehypeKatex from 'rehype-katex'
 const mdxOptions = {
   remarkPlugins: [remarkGfm, remarkMath],
   rehypePlugins: [
+    rehypeSlug,
     rehypeKatex,
     [
       rehypePrettyCode,

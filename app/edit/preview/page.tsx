@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { getMDXSource } from "@/app/actions"
 import MDXPreviewRenderer from "@/components/mdx-preview-renderer"
+import TableOfContents from "@/components/TableOfContents"
 
 interface PreviewData {
   title: string
@@ -83,54 +84,58 @@ export default function PreviewPage() {
 
       {/* Post Content */}
       <article className="w-full py-12">
-        <div className="mx-auto max-w-3xl px-6">
-          {/* Back Link */}
-          <a
-            href={previewData.postId ? `/edit?id=${previewData.postId}` : "/edit"}
-            className="mb-8 inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Edit
-          </a>
+        <div className="mx-auto max-w-3xl px-6 relative">
+          
+          {/* Header Section (Centered) */}
+          <div>
+            {/* Back Link */}
+            <a
+              href={previewData.postId ? `/edit?id=${previewData.postId}` : "/edit"}
+              className="mb-8 inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Edit
+            </a>
 
-          {/* Category */}
-          <div className="mb-4">
-            <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
-              {previewData.category}
-            </span>
+            {/* Category */}
+            <div className="mb-4">
+              <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
+                {previewData.category}
+              </span>
+            </div>
+
+            {/* Title */}
+            <h1 className="mb-6 text-2xl font-light tracking-wide text-[#080f18] md:text-3xl">{previewData.title}</h1>
+
+            {/* Meta */}
+            <div className="mb-8 flex items-center gap-4 text-[11px] text-[#8b8c89]">
+              <span>Admin</span>
+              <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
+              <span>Preview</span>
+            </div>
+
+            {/* Featured Image */}
+            {previewData.imageUrl && (
+              <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
+                <img
+                  src={previewData.imageUrl}
+                  alt={previewData.title}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            )}
+
+            {/* Excerpt */}
+            {previewData.excerpt && (
+              <div className="mb-8 text-sm text-[#8b8c89]">
+                {previewData.excerpt}
+              </div>
+            )}
           </div>
 
-          {/* Title */}
-          <h1 className="mb-6 text-2xl font-light tracking-wide text-[#080f18] md:text-3xl">{previewData.title}</h1>
-
-          {/* Meta */}
-          <div className="mb-8 flex items-center gap-4 text-[11px] text-[#8b8c89]">
-            <span>Admin</span>
-            <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
-            <span>Preview</span>
-          </div>
-
-          {/* Featured Image */}
-          {previewData.imageUrl && (
-            <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
-              <img
-                src={previewData.imageUrl}
-                alt={previewData.title}
-                className="h-full w-full object-cover"
-              />
-            </div>
-          )}
-
-          {/* Excerpt */}
-          {previewData.excerpt && (
-            <div className="mb-8 text-sm text-[#8b8c89]">
-              {previewData.excerpt}
-            </div>
-          )}
-
-          {/* Content */}
+          {/* Main Content */}
           <div className="space-y-4 text-base text-[#080f18]">
             {mdxSource ? (
               <MDXPreviewRenderer source={mdxSource} />
@@ -139,17 +144,25 @@ export default function PreviewPage() {
             )}
           </div>
 
-          {/* Divider */}
-          <div className="my-12 border-t border-[#e5e5e5]"></div>
+          {/* ToC Sidebar (Absolute) */}
+          <aside className="hidden xl:block absolute left-full top-0 ml-12 h-full">
+            <TableOfContents />
+          </aside>
 
-          {/* Author Section */}
-          <div className="flex items-center gap-4 rounded bg-white p-6 shadow-sm">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#080f18] text-lg font-light text-white">
-              A
-            </div>
-            <div>
-              <p className="text-sm font-medium tracking-wide text-[#080f18]">Admin</p>
-              <p className="text-xs text-[#8b8c89]">Developer & Mathematician</p>
+          {/* Footer Section (Centered) */}
+          <div>
+            {/* Divider */}
+            <div className="my-12 border-t border-[#e5e5e5]"></div>
+
+            {/* Author Section */}
+            <div className="flex items-center gap-4 rounded bg-white p-6 shadow-sm">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#080f18] text-lg font-light text-white">
+                A
+              </div>
+              <div>
+                <p className="text-sm font-medium tracking-wide text-[#080f18]">Admin</p>
+                <p className="text-xs text-[#8b8c89]">Developer & Mathematician</p>
+              </div>
             </div>
           </div>
         </div>

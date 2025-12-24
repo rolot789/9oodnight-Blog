@@ -3,21 +3,37 @@ import type { Post } from "@/lib/types"
 import Link from "next/link"
 import LogoutButton from "@/components/LogoutButton"
 
-export default async function Page() {
+const CATEGORIES = ["All", "Mathematics", "Development", "DevOps", "Computer Science", "Research"]
+
+interface PageProps {
+  searchParams: Promise<{
+    category?: string
+  }>
+}
+
+export default async function Page({ searchParams }: PageProps) {
+  const { category } = await searchParams
+  const selectedCategory = category || "All"
+
   const supabase = await createClient()
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
-  const { data: posts } = await supabase.from("posts").select("*").order("created_at", { ascending: false })
+  let query = supabase.from("posts").select("*").order("created_at", { ascending: false })
 
+  if (selectedCategory !== "All") {
+    query = query.eq("category", selectedCategory)
+  }
+
+  const { data: posts } = await query
   const blogPosts = (posts as Post[]) || []
 
   return (
     <div className="min-h-screen bg-[#fafbfc]">
       {/* Header */}
-      <header className="w-full border-b border-[#e5e5e5] bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+      <header className="w-full border-b border-[#e5e5e5] bg-white sticky top-0 z-10">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <a href="/" className="text-sm font-light tracking-[0.3em] text-[#080f18]">
             MY PORTFOLIO
           </a>
@@ -47,8 +63,8 @@ export default async function Page() {
 
 
       {/* Hero */}
-      <section className="w-full bg-white py-12">
-        <div className="mx-auto max-w-5xl px-6">
+      <section className="w-full bg-white py-12 border-b border-[#e5e5e5]">
+        <div className="mx-auto max-w-6xl px-6">
           <div className="relative h-[300px] w-full overflow-hidden">
             <img
               src="/minimal-workspace-with-laptop-and-mathematical-equ.jpg"
@@ -64,72 +80,117 @@ export default async function Page() {
         </div>
       </section>
 
-      {/* Blog Posts */}
-      <section className="w-full py-12">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="space-y-8">
-            {blogPosts.map((post) => (
-              <article key={post.id} className="flex flex-col gap-6 bg-white p-6 shadow-sm md:flex-row">
-                <div className="relative h-[220px] w-full flex-shrink-0 overflow-hidden md:h-[200px] md:w-[280px]">
-                  <img
-                    src={post.image_url || "/placeholder.svg?height=200&width=280&query=abstract"}
-                    alt={post.title}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div className="flex flex-1 flex-col justify-between">
-                  <div>
-                    <div className="mb-3 flex items-center gap-3">
-                      <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
-                        {post.category}
-                      </span>
-                    </div>
-                    <h2 className="mb-3 text-lg font-light tracking-wide text-[#080f18]">{post.title.toUpperCase()}</h2>
-                    <p className="text-sm leading-relaxed text-[#8b8c89]">{post.excerpt}</p>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between border-t border-[#e5e5e5] pt-4">
-                    <div className="flex items-center gap-4 text-[11px] text-[#8b8c89]">
-                      <span>Admin</span>
-                      <span>
-                        {new Date(post.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                      <span>{post.read_time} read</span>
-                    </div>
-                    {session ? (
-                      <Link
-                        href={`/edit?id=${post.id}`}
-                        className="text-xs tracking-wider text-[#6096ba] transition-colors hover:text-[#4a7a9a]"
-                      >
-                        Edit
-                      </Link>
-                    ) : (
-                      <a
-                        href={`/post?id=${post.id}`}
-                        className="text-xs tracking-wider text-[#6096ba] transition-colors hover:text-[#4a7a9a]"
-                      >
-                        Read More
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-          {blogPosts.length === 0 && (
-            <div className="py-12 text-center">
-              <p className="text-sm text-[#8b8c89]">No posts yet. Create your first post!</p>
+      {/* Main Content Area */}
+      <div className="mx-auto max-w-6xl px-6 py-12">
+        <div className="grid grid-cols-1 gap-12 md:grid-cols-[200px_1fr]">
+          
+          {/* Left Sidebar: Categories */}
+          <aside className="space-y-8">
+            <div>
+              <h3 className="mb-6 text-xs font-bold tracking-widest text-[#080f18]">CATEGORIES</h3>
+              <ul className="space-y-4">
+                {CATEGORIES.map((cat) => (
+                  <li key={cat}>
+                    <Link
+                      href={cat === "All" ? "/" : `/?category=${encodeURIComponent(cat)}`}
+                      className={`text-xs tracking-wider transition-colors hover:text-[#080f18] ${
+                        selectedCategory === cat ? "font-medium text-[#080f18] border-l-2 border-[#080f18] pl-3 -ml-3.5" : "text-[#8b8c89]"
+                      }`}
+                    >
+                      {cat.toUpperCase()}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
-          )}
+          </aside>
+
+          {/* Right Column: Content */}
+          <main className="min-w-0"> {/* min-w-0 prevents overflow issues in grid */}
+            
+            {/* Admin Actions */}
+            {session && (
+              <div className="mb-10 flex justify-end">
+                <Link
+                  href="/edit"
+                  className="flex items-center gap-2 border border-[#080f18] bg-[#080f18] px-6 py-3 text-xs tracking-wider text-white transition-all hover:bg-white hover:text-[#080f18]"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                  CREATE NEW POST
+                </Link>
+              </div>
+            )}
+
+            {/* Blog Posts List */}
+            <div className="space-y-8">
+              {blogPosts.map((post) => (
+                <article key={post.id} className="flex flex-col gap-6 bg-white p-6 shadow-sm md:flex-row transition-shadow hover:shadow-md">
+                  <div className="relative h-[220px] w-full flex-shrink-0 overflow-hidden md:h-[180px] md:w-[260px]">
+                    <img
+                      src={post.image_url || "/placeholder.svg?height=200&width=280&query=abstract"}
+                      alt={post.title}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col justify-between">
+                    <div>
+                      <div className="mb-3 flex items-center gap-3">
+                        <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
+                          {post.category}
+                        </span>
+                      </div>
+                      <h2 className="mb-3 text-lg font-light tracking-wide text-[#080f18]">{post.title.toUpperCase()}</h2>
+                      <p className="text-sm leading-relaxed text-[#8b8c89] line-clamp-3">{post.excerpt}</p>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between border-t border-[#e5e5e5] pt-4">
+                      <div className="flex items-center gap-4 text-[11px] text-[#8b8c89]">
+                        <span>Admin</span>
+                        <span>
+                          {new Date(post.created_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                        <span>{post.read_time} read</span>
+                      </div>
+                      {session ? (
+                        <Link
+                          href={`/edit?id=${post.id}`}
+                          className="text-xs tracking-wider text-[#6096ba] transition-colors hover:text-[#4a7a9a]"
+                        >
+                          Edit
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/post/${post.id}`}
+                          className="text-xs tracking-wider text-[#6096ba] transition-colors hover:text-[#4a7a9a]"
+                        >
+                          Read More
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              ))}
+              {blogPosts.length === 0 && (
+                <div className="py-20 text-center border border-dashed border-[#e5e5e5]">
+                  <p className="text-sm text-[#8b8c89] mb-2">No posts found in {selectedCategory}.</p>
+                  {session && (
+                     <Link href="/edit" className="text-xs text-[#6096ba] underline">Create one now</Link>
+                  )}
+                </div>
+              )}
+            </div>
+          </main>
         </div>
-      </section>
+      </div>
 
       {/* Footer */}
-      <footer className="w-full bg-[#080f18] py-12">
-        <div className="mx-auto max-w-5xl px-6">
+      <footer className="w-full bg-[#080f18] py-12 mt-12">
+        <div className="mx-auto max-w-6xl px-6">
           <div className="flex flex-col items-center gap-8 md:flex-row md:justify-between">
             <div className="text-center md:text-left">
               <p className="text-sm font-light tracking-[0.3em] text-white">MY PORTFOLIO</p>

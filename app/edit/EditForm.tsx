@@ -2,14 +2,25 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog"
 
 const categories = ["Mathematics", "Development", "DevOps", "Computer Science", "Research"]
 
 export default function EditForm() {
   const searchParams = useSearchParams()
   const postId = searchParams.get("id")
+  const router = useRouter()
 
   const [title, setTitle] = useState("")
   const [category, setCategory] = useState("")
@@ -46,6 +57,23 @@ export default function EditForm() {
     const previewData = { title, category, excerpt, content, imageUrl, postId }
     localStorage.setItem("previewData", JSON.stringify(previewData))
     window.location.href = "/edit/preview"
+  }
+
+  const handleDelete = async () => {
+    if (!postId) return
+
+    setIsSubmitting(true)
+    setMessage(null)
+
+    const { error } = await supabase.from("posts").delete().eq("id", postId)
+
+    if (error) {
+      setMessage({ type: "error", text: `Error: ${error.message}` })
+      setIsSubmitting(false)
+    } else {
+      router.push("/")
+      router.refresh()
+    }
   }
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -300,6 +328,41 @@ export default function EditForm() {
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-4 pt-4">
+          {isEditMode && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="mr-auto text-xs tracking-wider text-red-600 transition-colors hover:text-red-800 hover:underline"
+                >
+                  DELETE POST
+                </button>
+              </DialogTrigger>
+              <DialogContent showCloseButton={false}>
+                <DialogHeader>
+                  <DialogTitle>Delete Post</DialogTitle>
+                  <DialogDescription>
+                    Are you sure? This action cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <button className="border border-[#e5e5e5] px-4 py-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]">
+                      Cancel
+                    </button>
+                  </DialogClose>
+                  <button
+                    onClick={handleDelete}
+                    disabled={isSubmitting}
+                    className="bg-red-600 px-4 py-2 text-xs tracking-wider text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {isSubmitting ? "Deleting..." : "Delete"}
+                  </button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+
           <a
             href="/"
             className="border border-[#e5e5e5] px-6 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]"
