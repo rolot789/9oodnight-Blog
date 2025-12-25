@@ -33,11 +33,11 @@ export default async function Page({ searchParams }: PageProps) {
       {/* Hero */}
       <section className="w-full bg-white py-8 border-b border-[#e5e5e5]">
         <div className="mx-auto max-w-6xl px-6">
-          <div className="relative h-[250px] w-full overflow-hidden rounded-lg">
+          <div className="relative h-[250px] w-full overflow-hidden rounded-lg bg-[#f8f9fa]">
             <img
               src="/minimal-workspace-with-laptop-and-mathematical-equ.jpg"
               alt="Developer workspace"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
           </div>
           <div className="mt-8 text-center">
