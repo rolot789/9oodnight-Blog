@@ -9,4 +9,5 @@ export interface Post {
   read_time: string
   created_at: string
   updated_at: string
+  tags: string[] | null
 }

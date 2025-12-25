@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { Search as SearchIcon, CornerDownLeft } from "lucide-react"
 import type { Post } from "@/lib/types"
+import { Badge } from "@/components/ui/badge"
 
 // Helper component for highlighting text
 const HighlightedText = ({ text, highlight }: { text: string; highlight: string }) => {
@@ -56,7 +57,7 @@ const getRelevantSnippet = (content: string, query: string, maxLength = 200) => 
   return snippet
 }
 
-export default function SearchPage() {
+function SearchContent() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get("q") || ""
   const [query, setQuery] = useState(initialQuery)
@@ -73,11 +74,11 @@ export default function SearchPage() {
 
     setIsSearching(true)
     
-    // Search in both title and content
+    // Search in title, content, and tags
     const { data, error } = await supabase
       .from("posts")
       .select("*")
-      .or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`)
+      .or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%,tags.cs.{"${searchQuery}"}`)
       .order("created_at", { ascending: false })
 
     if (!error && data) {
@@ -122,7 +123,7 @@ export default function SearchPage() {
               <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8b8c89]" />
               <Input
                 type="text"
-                placeholder="Search titles and content..."
+                placeholder="Search titles, content, or tags..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -144,13 +145,7 @@ export default function SearchPage() {
         <div className="space-y-8">
           {isSearching ? (
             <div className="text-center text-sm text-[#8b8c89]">Searching...</div>
-          ) : query && results.length === 0 && !isSearching ? ( // Added check to prevent showing "No results" before search
-             // Only show "No results" if a search has actually been performed or initial load is done with no results
-             // But checking results.length === 0 is tricky with initial state. 
-             // Let's rely on the fact that if query is empty, we don't search. 
-             // If query exists but results empty -> No results.
-             // We need to know if a search was ATTEMPTED.
-             // For simplicity, let's keep it simple: if query exists and no results
+          ) : query && results.length === 0 && !isSearching ? (
              query.trim() !== "" && (
               <div className="py-12 text-center">
                 <p className="text-[#8b8c89]">No results found for "{query}"</p>
@@ -159,11 +154,16 @@ export default function SearchPage() {
           ) : (
             results.map((post) => (
               <article key={post.id} className="group rounded border border-[#e5e5e5] bg-white p-8 shadow-sm transition-all hover:border-[#080f18]">
-                <div className="mb-4 flex items-center gap-3">
+                <div className="mb-4 flex flex-wrap items-center gap-2">
                   <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
                     {post.category}
                   </span>
-                  <span className="text-[11px] text-[#8b8c89]">
+                  {post.tags && post.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="text-[10px] font-normal tracking-wider">
+                      {tag}
+                    </Badge>
+                  ))}
+                  <span className="text-[11px] text-[#8b8c89] ml-2">
                     {new Date(post.created_at).toLocaleDateString("en-US", {
                       month: "long",
                       day: "numeric",
@@ -200,5 +200,13 @@ export default function SearchPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#fafbfc] flex items-center justify-center text-[#8b8c89]">Loading...</div>}>
+      <SearchContent />
+    </Suspense>
   )
 }

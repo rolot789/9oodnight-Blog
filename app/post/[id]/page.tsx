@@ -5,6 +5,7 @@ import { mdxComponents } from "@/components/mdx-components"
 import Link from "next/link"
 import { Paperclip, Download } from "lucide-react"
 import TableOfContents from "@/components/TableOfContents"
+import { Badge } from "@/components/ui/badge"
 
 interface PostPageProps {
   params: Promise<{
@@ -47,11 +48,16 @@ export default async function PostPage({ params }: PostPageProps) {
               Back to Home
             </Link>
 
-            {/* Category */}
-            <div className="mb-4">
+            {/* Category and Tags */}
+            <div className="mb-4 flex flex-wrap items-center gap-2">
               <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
                 {post.category}
               </span>
+              {post.tags && post.tags.map((tag: string) => (
+                <Badge key={tag} variant="secondary" className="text-[10px] font-normal tracking-wider">
+                  {tag}
+                </Badge>
+              ))}
             </div>
 
             {/* Title */}

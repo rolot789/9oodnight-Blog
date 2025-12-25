@@ -4,18 +4,10 @@ import type React from "react"
 import { useEffect, useState, useMemo } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog"
-import { Paperclip, Trash2, UploadCloud, Eye, EyeOff } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog"
+import { Paperclip, Trash2, UploadCloud, Eye, EyeOff, X } from "lucide-react"
 import { Toggle } from "@/components/ui/toggle"
+import { Badge } from "@/components/ui/badge"
 import dynamic from "next/dynamic"
 
 const RealtimePreview = dynamic(() => import("@/components/RealtimePreview"), {
@@ -39,6 +31,8 @@ export default function EditForm() {
   const [category, setCategory] = useState("")
   const [excerpt, setExcerpt] = useState("")
   const [content, setContent] = useState("")
+  const [tags, setTags] = useState<string[]>([])
+  const [currentTag, setCurrentTag] = useState("")
   const [imageUrl, setImageUrl] = useState("")
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [fileToDelete, setFileToDelete] = useState<string | null>(null)
@@ -61,6 +55,7 @@ export default function EditForm() {
           setCategory(data.category)
           setExcerpt(data.excerpt)
           setContent(data.content)
+          setTags(data.tags || [])
           setImageUrl(data.image_url || "")
           setAttachments(data.attachments || [])
         }
@@ -72,9 +67,23 @@ export default function EditForm() {
   }, [postId, isEditMode, supabase])
 
   const handlePreview = () => {
-    const previewData = { title, category, excerpt, content, imageUrl, attachments, postId }
+    const previewData = { title, category, excerpt, content, imageUrl, attachments, tags, postId }
     localStorage.setItem("previewData", JSON.stringify(previewData))
     window.location.href = "/edit/preview"
+  }
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && currentTag.trim()) {
+      e.preventDefault()
+      if (!tags.includes(currentTag.trim())) {
+        setTags([...tags, currentTag.trim()])
+      }
+      setCurrentTag("")
+    }
+  }
+
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove))
   }
 
   const handleDelete = async () => {
@@ -175,6 +184,7 @@ export default function EditForm() {
       category,
       excerpt,
       content,
+      tags,
       image_url: imageUrl || null,
       attachments,
       read_time: `${Math.max(1, Math.ceil(content.split(" ").length / 200))} min`,
@@ -202,6 +212,7 @@ export default function EditForm() {
         setCategory("")
         setExcerpt("")
         setContent("")
+        setTags([])
         setImageUrl("")
         setAttachments([])
       }
@@ -247,6 +258,33 @@ export default function EditForm() {
         <div>
           <label htmlFor="excerpt" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">EXCERPT</label>
           <textarea id="excerpt" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="Write a short summary..." required rows={2} className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
+        </div>
+        <div>
+          <label htmlFor="tags" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">TAGS</label>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {tags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="gap-1 pr-1">
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                  <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                  <span className="sr-only">Remove {tag} tag</span>
+                </button>
+              </Badge>
+            ))}
+          </div>
+          <input
+            type="text"
+            id="tags"
+            value={currentTag}
+            onChange={(e) => setCurrentTag(e.target.value)}
+            onKeyDown={handleTagKeyDown}
+            placeholder="Type a tag and press Enter..."
+            className="w-full border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]"
+          />
         </div>
         <div>
           <div className="mb-2 flex items-center justify-between">
