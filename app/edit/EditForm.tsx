@@ -14,7 +14,15 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog"
-import { Paperclip, Trash2, UploadCloud } from "lucide-react"
+import { Paperclip, Trash2, UploadCloud, Eye, EyeOff } from "lucide-react"
+import { Toggle } from "@/components/ui/toggle"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
+import rehypeKatex from "rehype-katex"
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
+import okaidia from "react-syntax-highlighter/dist/esm/styles/prism/okaidia"
+import "katex/dist/katex.min.css"
 
 const categories = ["Mathematics", "Development", "DevOps", "Computer Science", "Research"]
 
@@ -39,6 +47,7 @@ export default function EditForm() {
   const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
 
   const supabase = createClient()
   const isEditMode = postId !== null
@@ -204,7 +213,7 @@ export default function EditForm() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6">
+    <div className={`mx-auto px-6 transition-all duration-300 ${showPreview ? "max-w-[90vw]" : "max-w-3xl"}`}>
       <a
         href="/"
         className="mb-8 inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
@@ -242,8 +251,60 @@ export default function EditForm() {
           <textarea id="excerpt" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="Write a short summary..." required rows={2} className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
         </div>
         <div>
-          <label htmlFor="content" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">CONTENT</label>
-          <textarea id="content" value={content} onChange={handleContentChange} placeholder="Write your post content here... (Markdown & LaTeX supported)" required rows={24} className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm leading-relaxed font-mono text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
+          <div className="mb-2 flex items-center justify-between">
+            <label htmlFor="content" className="block text-xs tracking-wider text-[#8b8c89]">CONTENT</label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[#8b8c89]">{showPreview ? "Preview On" : "Preview Off"}</span>
+              <Toggle pressed={showPreview} onPressedChange={setShowPreview} aria-label="Toggle preview" className="data-[state=on]:bg-[#e5e5e5]">
+                {showPreview ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </Toggle>
+            </div>
+          </div>
+          <div className={showPreview ? "grid grid-cols-1 gap-6 lg:grid-cols-2" : ""}>
+            <textarea id="content" value={content} onChange={handleContentChange} placeholder="Write your post content here... (Markdown & LaTeX supported)" required rows={24} className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm leading-relaxed font-mono text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
+            
+            {showPreview && (
+              <div className="h-[600px] overflow-y-auto rounded border border-[#e5e5e5] bg-white p-6">
+                <div className="prose prose-sm max-w-none text-[#080f18]">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                    components={{
+                      h1: ({ node, ...props }) => <h1 className="mb-4 mt-8 text-3xl font-bold tracking-tight" {...props} />,
+                      h2: ({ node, ...props }) => <h2 className="mb-3 mt-6 text-2xl font-bold tracking-tight" {...props} />,
+                      h3: ({ node, ...props }) => <h3 className="mb-3 mt-5 text-xl font-bold tracking-tight" {...props} />,
+                      p: ({ node, ...props }) => <p className="mb-4 leading-7" {...props} />,
+                      ul: ({ node, ...props }) => <ul className="mb-4 list-inside list-disc pl-4" {...props} />,
+                      ol: ({ node, ...props }) => <ol className="mb-4 list-inside list-decimal pl-4" {...props} />,
+                      blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-[#6096ba] bg-[#f5f5f5] py-2 pl-4 italic text-[#555]" {...props} />,
+                      a: ({ node, ...props }) => <a className="text-[#6096ba] underline hover:text-[#4a7a9a]" {...props} />,
+                      code: ({ node, inline, className, children, ...props }: any) => {
+                        const match = /language-(\w+)/.exec(className || "")
+                        return !inline && match ? (
+                          <SyntaxHighlighter
+                            style={okaidia}
+                            language={match[1]}
+                            PreTag="div"
+                            showLineNumbers
+                            customStyle={{ margin: 0, fontSize: "0.875rem", borderRadius: "0.25rem" }}
+                            {...props}
+                          >
+                            {String(children).replace(/\n$/, "")}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className="rounded bg-[#f0f0f0] px-1 py-0.5 font-mono text-sm text-[#c41d7f]" {...props}>
+                            {children}
+                          </code>
+                        )
+                      }
+                    }}
+                  >
+                    {content}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <div>
           <label htmlFor="imageUrl" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">FEATURED IMAGE URL (optional)</label>
