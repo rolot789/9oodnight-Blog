@@ -37,7 +37,7 @@ export default async function Page({ searchParams }: PageProps) {
             <img
               src="/minimal-workspace-with-laptop-and-mathematical-equ.jpg"
               alt="Developer workspace"
-              className="h-full w-full object-contain"
+              className="h-full w-full object-cover"
             />
           </div>
           <div className="mt-8 text-center">

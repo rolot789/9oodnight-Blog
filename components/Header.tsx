@@ -13,7 +13,7 @@ export default async function Header() {
     <header className="w-full border-b border-[#e5e5e5] bg-white sticky top-0 z-50">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="text-sm font-light tracking-[0.3em] text-[#080f18]">
-          MY PORTFOLIO
+          TAEKANG
         </Link>
         <nav className="flex items-center gap-8">
           <Link href="/" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
