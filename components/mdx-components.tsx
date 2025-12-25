@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import CodeBlock from './CodeBlock'
 
 export const mdxComponents = {
   h1: (props: any) => (
@@ -66,11 +67,6 @@ export const mdxComponents = {
   strong: (props: any) => <strong className="!font-bold text-inherit" {...props} />,
   em: (props: any) => <em className="italic" {...props} />,
   del: (props: any) => <del className="line-through" {...props} />,
-  code: (props: any) => (
-    <code
-      className="rounded bg-[#f0f0f0] px-1 py-0.5 font-mono text-sm text-[#c41d7f]"
-      {...props}
-    />
-  ),
+  code: CodeBlock,
   Image,
 }

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Paperclip, Trash2, UploadCloud, Eye, EyeOff, X } from "lucide-react"
 import { Toggle } from "@/components/ui/toggle"
 import { Badge } from "@/components/ui/badge"
+import { toast } from "sonner"
 import dynamic from "next/dynamic"
 
 const RealtimePreview = dynamic(() => import("@/components/RealtimePreview"), {
@@ -38,7 +39,6 @@ export default function EditForm() {
   const [fileToDelete, setFileToDelete] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [showPreview, setShowPreview] = useState(false)
 
   const supabase = useMemo(() => createClient(), [])
@@ -47,9 +47,9 @@ export default function EditForm() {
   useEffect(() => {
     const fetchPost = async () => {
       if (postId) {
-        const { data, error } = await supabase.from("posts").select("*").eq("id", postId).single()
+        const { data, error } = await supabase.from("posts").select("*", { count: 'exact' }).eq("id", postId).single()
         if (error) {
-          setMessage({ type: "error", text: `Error: ${error.message}` })
+          toast.error(`Error: ${error.message}`)
         } else if (data) {
           setTitle(data.title)
           setCategory(data.category)
@@ -90,13 +90,12 @@ export default function EditForm() {
     if (!postId) return
 
     setIsSubmitting(true)
-    setMessage(null)
 
     if (attachments.length > 0) {
       const filePaths = attachments.map(file => file.filePath);
       const { error: storageError } = await supabase.storage.from('files').remove(filePaths);
       if (storageError) {
-        setMessage({ type: "error", text: `Failed to delete attachments: ${storageError.message}` });
+        toast.error(`Failed to delete attachments: ${storageError.message}`);
         setIsSubmitting(false);
         return;
       }
@@ -105,7 +104,7 @@ export default function EditForm() {
     const { error } = await supabase.from("posts").delete().eq("id", postId)
 
     if (error) {
-      setMessage({ type: "error", text: `Error: ${error.message}` })
+      toast.error(`Error: ${error.message}`)
       setIsSubmitting(false)
     } else {
       router.push("/")
@@ -127,12 +126,11 @@ export default function EditForm() {
     const filePath = `${Date.now()}_${finalName}.${fileExt}`
 
     setIsUploading(true)
-    setMessage(null)
 
     const { error } = await supabase.storage.from("files").upload(filePath, file)
 
     if (error) {
-      setMessage({ type: "error", text: `Upload error: ${error.message}` })
+      toast.error(`Upload error: ${error.message}`)
     } else {
       const { data: { publicUrl } } = supabase.storage.from("files").getPublicUrl(filePath)
       setAttachments([...attachments, { filename: file.name, url: publicUrl, filePath: filePath }])
@@ -154,7 +152,7 @@ export default function EditForm() {
     const { error } = await supabase.storage.from('files').remove([filePathToDelete])
     
     if (error) {
-      setMessage({ type: "error", text: `Failed to delete file: ${error.message}` })
+      toast.error(`Failed to delete file: ${error.message}`)
     }
   }
 
@@ -177,7 +175,6 @@ export default function EditForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    setMessage(null)
 
     const postData = {
       title,
@@ -201,12 +198,9 @@ export default function EditForm() {
     }
 
     if (error) {
-      setMessage({ type: "error", text: `Error: ${error.message}` })
+      toast.error(`Error: ${error.message}`)
     } else {
-      setMessage({
-        type: "success",
-        text: `Post ${isEditMode ? "updated" : "published"} successfully!`,
-      })
+      toast.success(`Post ${isEditMode ? "updated" : "published"} successfully!`)
       if (!isEditMode) {
         setTitle("")
         setCategory("")
@@ -234,14 +228,6 @@ export default function EditForm() {
       </a>
 
       <h1 className="mb-8 text-2xl font-light tracking-wide text-[#080f18]">{isEditMode ? "EDIT POST" : "CREATE NEW POST"}</h1>
-
-      {message && (
-        <div
-          className={`mb-6 p-4 text-sm ${message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}
-        >
-          {message.text}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>

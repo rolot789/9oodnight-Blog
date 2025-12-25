@@ -1,6 +1,5 @@
 import { compileMDX } from 'next-mdx-remote/rsc'
 import { serialize } from 'next-mdx-remote/serialize'
-import rehypePrettyCode from 'rehype-pretty-code'
 import rehypeSlug from 'rehype-slug'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -12,20 +11,6 @@ const mdxOptions = {
   rehypePlugins: [
     rehypeSlug,
     rehypeKatex,
-    [
-      rehypePrettyCode,
-      {
-        theme: 'github-dark',
-        keepBackground: true,
-        onVisitLine(node: any) {
-          // Prevent lines from collapsing in `display: grid` mode, and allow empty
-          // lines to be copy/pasted
-          if (node.children.length === 0) {
-            node.children = [{ type: 'text', value: ' ' }]
-          }
-        },
-      },
-    ],
   ],
 }
 
