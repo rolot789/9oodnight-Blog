@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { compileMDXContent } from "@/lib/mdx"
 import { mdxComponents } from "@/components/mdx-components"
 import Link from "next/link"
+import { Paperclip, Download } from "lucide-react"
 import TableOfContents from "@/components/TableOfContents"
 
 interface PostPageProps {

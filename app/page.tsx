@@ -156,6 +156,18 @@ export default async function Page({ searchParams }: PageProps) {
         </div>
       </div>
 
+      {/* View All Posts Button */}
+      {blogPosts.length > 0 && selectedCategory !== "All" && (
+        <div className="flex justify-center mt-12 px-6">
+          <Link
+            href="/"
+            className="border border-[#080f18] bg-[#080f18] px-8 py-3 text-xs tracking-wider text-white transition-colors hover:bg-white hover:text-[#080f18]"
+          >
+            VIEW ALL POSTS
+          </Link>
+        </div>
+      )}
+
       {/* Footer */}
       <footer className="w-full bg-[#080f18] py-12 mt-12">
         <div className="mx-auto max-w-6xl px-6">

@@ -35,6 +35,7 @@ export default function EditForm() {
   const [content, setContent] = useState("")
   const [imageUrl, setImageUrl] = useState("")
   const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [fileToDelete, setFileToDelete] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
@@ -45,7 +46,7 @@ export default function EditForm() {
   useEffect(() => {
     const fetchPost = async () => {
       if (postId) {
-        const { data, error } = await supabase.from("posts").select("* ").eq("id", postId).single()
+        const { data, error } = await supabase.from("posts").select("*").eq("id", postId).single()
         if (error) {
           setMessage({ type: "error", text: `Error: ${error.message}` })
         } else if (data) {
@@ -101,7 +102,13 @@ export default function EditForm() {
       return
     }
     const file = e.target.files[0]
-    const filePath = `${Date.now()}_${file.name}`
+    
+    const fileExt = file.name.split('.').pop()
+    const fileNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name
+    const safeFileName = fileNameWithoutExt.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_')
+    const finalName = safeFileName.length > 0 ? safeFileName : 'file'
+    
+    const filePath = `${Date.now()}_${finalName}.${fileExt}`
 
     setIsUploading(true)
     setMessage(null)
@@ -117,13 +124,21 @@ export default function EditForm() {
     setIsUploading(false)
   }
 
-  const handleFileDelete = async (filePathToDelete: string) => {
-    setAttachments(attachments.filter(att => att.filePath !== filePathToDelete));
+  const handleFileDelete = (filePath: string) => {
+    setFileToDelete(filePath)
+  }
 
-    const { error } = await supabase.storage.from('files').remove([filePathToDelete]);
+  const executeFileDelete = async () => {
+    if (!fileToDelete) return
+
+    const filePathToDelete = fileToDelete
+    setAttachments(attachments.filter(att => att.filePath !== filePathToDelete))
+    setFileToDelete(null)
+
+    const { error } = await supabase.storage.from('files').remove([filePathToDelete])
     
     if (error) {
-      setMessage({ type: "error", text: `Failed to delete file: ${error.message}` });
+      setMessage({ type: "error", text: `Failed to delete file: ${error.message}` })
     }
   }
 
@@ -319,6 +334,32 @@ export default function EditForm() {
                 </button>
               </div>
             ))}
+            
+            <Dialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
+              <DialogContent showCloseButton={false}>
+                <DialogHeader>
+                  <DialogTitle>Delete Attachment</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to remove this file? This cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <button
+                    onClick={() => setFileToDelete(null)}
+                    className="border border-[#e5e5e5] px-4 py-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={executeFileDelete}
+                    className="bg-red-600 px-4 py-2 text-xs tracking-wider text-white transition-colors hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             {attachments.length === 0 && !isUploading &&(
               <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
                 <UploadCloud className="mx-auto h-12 w-12 text-gray-400" />

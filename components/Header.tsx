@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import LogoutButton from "@/components/LogoutButton"
+import { Search } from "lucide-react"
 
 export default async function Header() {
   const supabase = await createClient()
@@ -26,6 +27,9 @@ export default async function Header() {
           </Link>
           <Link href="/about" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
             ABOUT
+          </Link>
+          <Link href="/search" className="text-[#8b8c89] transition-colors hover:text-[#080f18]" aria-label="Search">
+            <Search className="h-4 w-4" />
           </Link>
           {session ? (
             <LogoutButton />
