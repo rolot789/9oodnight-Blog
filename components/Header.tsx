@@ -19,18 +19,6 @@ export default async function Header() {
           <Link href="/" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
             HOME
           </Link>
-          <Link href="/dev" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-            DEV
-          </Link>
-          <Link href="/math" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-            MATH
-          </Link>
-          <Link href="/about" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
-            ABOUT
-          </Link>
-          <Link href="/search" className="text-[#8b8c89] transition-colors hover:text-[#080f18]" aria-label="Search">
-            <Search className="h-4 w-4" />
-          </Link>
           {session ? (
             <LogoutButton />
           ) : (
@@ -38,6 +26,9 @@ export default async function Header() {
               LOGIN
             </Link>
           )}
+          <Link href="/search" className="text-[#8b8c89] transition-colors hover:text-[#080f18]" aria-label="Search">
+            <Search className="h-4 w-4" />
+          </Link>
         </nav>
       </div>
     </header>
