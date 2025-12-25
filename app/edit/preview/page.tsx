@@ -5,6 +5,7 @@ import { getMDXSource } from "@/app/actions"
 import MDXPreviewRenderer from "@/components/mdx-preview-renderer"
 import TableOfContents from "@/components/TableOfContents"
 import { Download, Paperclip } from "lucide-react"
+import RealtimePreview from "@/components/RealtimePreview"
 
 interface PreviewData {
   title: string
@@ -116,10 +117,10 @@ export default function PreviewPage() {
 
           {/* Main Content */}
           <div className="space-y-4 text-base text-[#080f18]">
-            {mdxSource ? (
-              <MDXPreviewRenderer source={mdxSource} />
+            {previewData.content ? (
+              <RealtimePreview content={previewData.content} />
             ) : (
-              <p>Loading content preview...</p>
+              <p>No content to preview.</p>
             )}
           </div>
 
