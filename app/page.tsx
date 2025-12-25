@@ -33,7 +33,7 @@ export default async function Page({ searchParams }: PageProps) {
       {/* Hero */}
       <section className="w-full bg-white py-8 border-b border-[#e5e5e5]">
         <div className="mx-auto max-w-6xl px-6">
-          <div className="relative h-[250px] w-full overflow-hidden rounded-lg bg-[#f8f9fa]">
+          <div className="relative h-[250px] w-full overflow-hidden bg-[#f8f9fa]">
             <img
               src="/minimal-workspace-with-laptop-and-mathematical-equ.jpg"
               alt="Developer workspace"
@@ -173,7 +173,7 @@ export default async function Page({ searchParams }: PageProps) {
         <div className="mx-auto max-w-6xl px-6">
           <div className="flex flex-col items-center gap-8 md:flex-row md:justify-between">
             <div className="text-center md:text-left">
-              <p className="text-sm font-light tracking-[0.3em] text-white">MY PORTFOLIO</p>
+              <p className="text-sm font-light tracking-[0.3em] text-white">9oodnight</p>
             </div>
             <div className="flex items-center gap-6">
               <a
