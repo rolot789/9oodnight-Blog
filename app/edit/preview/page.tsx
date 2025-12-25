@@ -6,6 +6,7 @@ import MDXPreviewRenderer from "@/components/mdx-preview-renderer"
 import TableOfContents from "@/components/TableOfContents"
 import { Download, Paperclip } from "lucide-react"
 import RealtimePreview from "@/components/RealtimePreview"
+import { Badge } from "@/components/ui/badge"
 
 interface PreviewData {
   title: string
@@ -14,6 +15,7 @@ interface PreviewData {
   content: string
   imageUrl: string
   attachments: { filename: string; url: string; filePath: string }[]
+  tags?: string[]
   postId?: string
 }
 
@@ -79,11 +81,16 @@ export default function PreviewPage() {
               Back to Edit
             </a>
 
-            {/* Category */}
-            <div className="mb-4">
+            {/* Category and Tags */}
+            <div className="mb-4 flex flex-wrap items-center gap-2">
               <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
                 {previewData.category}
               </span>
+              {previewData.tags && previewData.tags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-[10px] font-normal tracking-wider">
+                  {tag}
+                </Badge>
+              ))}
             </div>
 
             {/* Title */}

@@ -5,11 +5,12 @@ import { useEffect, useState, useMemo } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog"
-import { Paperclip, Trash2, UploadCloud, Eye, EyeOff, X } from "lucide-react"
+import { Paperclip, Trash2, UploadCloud, Eye, EyeOff, X, Edit2, Download, Columns } from "lucide-react"
 import { Toggle } from "@/components/ui/toggle"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import dynamic from "next/dynamic"
+import TableOfContents from "@/components/TableOfContents"
 
 const RealtimePreview = dynamic(() => import("@/components/RealtimePreview"), {
   ssr: false,
@@ -216,171 +217,232 @@ export default function EditForm() {
   }
 
   return (
-    <div className={`mx-auto px-6 transition-all duration-300 ${showPreview ? "max-w-[90vw]" : "max-w-3xl"}`}>
-      <a
-        href="/"
-        className="mb-8 inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
-      >
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
-        </svg>
-        Back to Home
-      </a>
+    <div className={`mx-auto px-6 transition-all duration-300 pb-20 ${showPreview ? "max-w-[95vw]" : "max-w-3xl"}`}>
+      {/* Top Navigation & Toggle */}
+      <div className="mb-8 flex items-center justify-between py-6">
+        <a
+          href="/"
+          className="inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Home
+        </a>
 
-      <h1 className="mb-8 text-2xl font-light tracking-wide text-[#080f18]">{isEditMode ? "EDIT POST" : "CREATE NEW POST"}</h1>
+        <div className="flex items-center gap-4">
+          <Toggle 
+            pressed={showPreview} 
+            onPressedChange={setShowPreview}
+            className="flex items-center gap-2 border border-[#e5e5e5] px-4 py-2 hover:bg-gray-50 data-[state=on]:bg-[#080f18] data-[state=on]:text-white transition-all"
+            aria-label="Toggle Split Preview"
+          >
+            {showPreview ? <Columns className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            <span className="text-[10px] font-bold tracking-widest">{showPreview ? "SPLIT VIEW" : "PREVIEW"}</span>
+          </Toggle>
+        </div>
+      </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="title" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">TITLE</label>
-          <input type="text" id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter post title..." required className="w-full border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
-        </div>
-        <div>
-          <label htmlFor="category" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">CATEGORY</label>
-          <select id="category" value={category} onChange={(e) => setCategory(e.target.value)} required className="w-full appearance-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] outline-none transition-colors focus:border-[#6096ba]">
-            <option value="">Select a category...</option>
-            {categories.map((cat) => ( <option key={cat} value={cat}>{cat}</option> ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="excerpt" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">EXCERPT</label>
-          <textarea id="excerpt" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="Write a short summary..." required rows={2} className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
-        </div>
-        <div>
-          <label htmlFor="tags" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">TAGS</label>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {tags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="gap-1 pr-1">
-                {tag}
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+      <div className={`grid gap-12 ${showPreview ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
+        
+        {/* Left Column: Edit Form */}
+        <div className="space-y-8 h-full">
+          <h1 className="mb-8 text-2xl font-light tracking-wide text-[#080f18]">{isEditMode ? "EDIT POST" : "CREATE NEW POST"}</h1>
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div>
+              <label htmlFor="title" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">TITLE</label>
+              <input type="text" id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter post title..." required className="w-full border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
+            </div>
+            
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label htmlFor="category" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">CATEGORY</label>
+                <select id="category" value={category} onChange={(e) => setCategory(e.target.value)} required className="w-full appearance-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] outline-none transition-colors focus:border-[#6096ba]">
+                  <option value="">Select a category...</option>
+                  {categories.map((cat) => ( <option key={cat} value={cat}>{cat}</option> ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="imageUrl" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">FEATURED IMAGE URL</label>
+                <input type="text" id="imageUrl" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/image.jpg" className="w-full border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="excerpt" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">EXCERPT</label>
+              <textarea id="excerpt" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="Write a short summary..." required rows={4} className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
+            </div>
+
+            <div>
+              <label htmlFor="tags" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">TAGS</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {tags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="gap-1 pr-1">
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      className="rounded-full outline-none hover:text-red-500 transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                      <span className="sr-only">Remove {tag} tag</span>
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+              <input
+                type="text"
+                id="tags"
+                value={currentTag}
+                onChange={(e) => setCurrentTag(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                placeholder="Type a tag and press Enter..."
+                className="w-full border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]"
+              />
+            </div>
+
+            <div className="flex flex-col h-full">
+              <label htmlFor="content" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">CONTENT (MARKDOWN)</label>
+              <textarea id="content" value={content} onChange={handleContentChange} placeholder="Write your post content here..." required rows={showPreview ? 35 : 20} className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm leading-relaxed font-mono text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs tracking-wider text-[#8b8c89]">ATTACHMENTS</label>
+              <div className="space-y-3">
+                {attachments.map((file) => (
+                  <div key={file.filePath} className="flex items-center justify-between rounded border border-[#e5e5e5] bg-white px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Paperclip className="h-4 w-4 text-[#8b8c89]" />
+                      <span className="text-sm text-[#080f18]">{file.filename}</span>
+                    </div>
+                    <button type="button" onClick={() => handleFileDelete(file.filePath)} className="text-[#8b8c89] hover:text-red-600 transition-colors">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded border border-[#e5e5e5] bg-white px-4 py-4 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]">
+                  <UploadCloud className="h-4 w-4" />
+                  {isUploading ? "UPLOADING..." : "UPLOAD ATTACHMENT"}
+                  <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-4 pt-8">
+              {isEditMode && (
+                <button 
+                  type="button" 
+                  onClick={() => {/* existing delete dialog trigger logic */}}
+                  className="mr-auto text-xs tracking-wider text-red-600 hover:underline"
                 >
-                  <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                  <span className="sr-only">Remove {tag} tag</span>
+                  DELETE POST
                 </button>
-              </Badge>
-            ))}
-          </div>
-          <input
-            type="text"
-            id="tags"
-            value={currentTag}
-            onChange={(e) => setCurrentTag(e.target.value)}
-            onKeyDown={handleTagKeyDown}
-            placeholder="Type a tag and press Enter..."
-            className="w-full border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]"
-          />
+              )}
+              <a href="/" className="border border-[#e5e5e5] px-6 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]">Cancel</a>
+              <button type="button" onClick={handlePreview} className="border border-[#e5e5e5] px-6 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]">Static Preview</button>
+              <button 
+                type="submit" 
+                disabled={isSubmitting || isUploading} 
+                className="bg-[#080f18] px-10 py-4 text-[10px] font-bold tracking-[0.2em] text-white transition-all hover:bg-[#1a2632] disabled:opacity-50"
+              >
+                {isSubmitting ? "PROCESSING..." : isEditMode ? "UPDATE POST" : "PUBLISH POST"}
+              </button>
+            </div>
+          </form>
         </div>
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <label htmlFor="content" className="block text-xs tracking-wider text-[#8b8c89]">CONTENT</label>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-[#8b8c89]">{showPreview ? "Preview On" : "Preview Off"}</span>
-              <Toggle pressed={showPreview} onPressedChange={setShowPreview} aria-label="Toggle preview" className="data-[state=on]:bg-[#e5e5e5]">
-                {showPreview ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-              </Toggle>
+
+        {/* Right Column: Realtime Preview (Visible only when showPreview is true) */}
+        {showPreview && (
+          <div className="hidden lg:block border-l border-[#e5e5e5] pl-8 h-full">
+            <div className="sticky top-8 h-[calc(100vh-100px)] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200">
+              <article className="w-full pb-12">
+                {/* Header Section */}
+                <div>
+                  {/* Category and Tags */}
+                  <div className="mb-4 flex flex-wrap items-center gap-2">
+                    <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
+                      {category || "Uncategorized"}
+                    </span>
+                    {tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-[10px] font-normal tracking-wider">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  {/* Title */}
+                  <h1 className="mb-6 text-2xl font-light tracking-wide text-[#080f18] md:text-3xl">{title || "Untitled Post"}</h1>
+
+                  {/* Meta */}
+                  <div className="mb-8 flex items-center gap-4 text-[11px] text-[#8b8c89]">
+                    <span>Admin</span>
+                    <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
+                    <span>Realtime Preview</span>
+                    <span className="h-1 w-1 rounded-full bg-[#8b8c89]"></span>
+                    <span>{`${Math.max(1, Math.ceil(content.split(" ").length / 200))} min`}</span>
+                  </div>
+
+                  {/* Featured Image */}
+                  {imageUrl && (
+                    <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
+                      <img
+                        src={imageUrl}
+                        alt={title}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Main Content */}
+                <div className="space-y-4 text-base text-[#080f18]">
+                  {content ? (
+                    <RealtimePreview content={content} />
+                  ) : (
+                    <p className="text-[#8b8c89] italic">Start writing to see the preview...</p>
+                  )}
+                </div>
+
+                {/* Attachments */}
+                {attachments.length > 0 && (
+                  <div className="mt-12">
+                    <h3 className="mb-4 text-sm font-bold tracking-widest text-[#080f18]">ATTACHMENTS</h3>
+                    <div className="space-y-3">
+                      {attachments.map((file, index) => (
+                        <div
+                          key={file.filePath || index}
+                          className="flex items-center justify-between rounded border border-[#e5e5e5] bg-white p-4"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Paperclip className="h-4 w-4 text-[#8b8c89]" />
+                            <span className="text-sm text-[#080f18]">{file.filename}</span>
+                          </div>
+                          <Download className="h-4 w-4 text-[#8b8c89]" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </article>
             </div>
           </div>
-          <div className={showPreview ? "grid grid-cols-1 gap-6 lg:grid-cols-2" : ""}>
-            <textarea id="content" value={content} onChange={handleContentChange} placeholder="Write your post content here... (Markdown & LaTeX supported)" required rows={24} className="w-full resize-none border border-[#e5e5e5] bg-white px-4 py-3 text-sm leading-relaxed font-mono text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
-            
-            {showPreview && (
-              <div className="h-[600px] overflow-y-auto rounded border border-[#e5e5e5] bg-white p-6">
-                <RealtimePreview content={content} />
-              </div>
-            )}
-          </div>
-        </div>
-        <div>
-          <label htmlFor="imageUrl" className="mb-2 block text-xs tracking-wider text-[#8b8c89]">FEATURED IMAGE URL (optional)</label>
-          <input type="text" id="imageUrl" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/image.jpg" className="w-full border border-[#e5e5e5] bg-white px-4 py-3 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#6096ba]" />
-        </div>
+        )}
+      </div>
 
-        <div>
-          <label className="mb-2 block text-xs tracking-wider text-[#8b8c89]">ATTACHMENTS</label>
-          <div className="space-y-4">
-            {attachments.length > 0 && attachments.map((file) => (
-              <div key={file.filePath} className="flex items-center justify-between rounded border border-[#e5e5e5] bg-white px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <Paperclip className="h-4 w-4 text-[#8b8c89]" />
-                  <span className="text-sm text-[#080f18]">{file.filename}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleFileDelete(file.filePath)}
-                  className="text-[#8b8c89] transition-colors hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-            
-            <Dialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
-              <DialogContent showCloseButton={false}>
-                <DialogHeader>
-                  <DialogTitle>Delete Attachment</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to remove this file? This cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <button
-                    onClick={() => setFileToDelete(null)}
-                    className="border border-[#e5e5e5] px-4 py-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={executeFileDelete}
-                    className="bg-red-600 px-4 py-2 text-xs tracking-wider text-white transition-colors hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {attachments.length === 0 && !isUploading &&(
-              <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-                <UploadCloud className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-[#080f18]">No files attached</h3>
-                <p className="mt-1 text-sm text-[#8b8c89]">Get started by uploading a file.</p>
-              </div>
-            )}
-            <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-[#e5e5e5] bg-white px-4 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#6096ba] hover:text-[#6096ba]">
-              <Paperclip className="h-4 w-4" />
-              {isUploading ? "Uploading..." : "ADD FILE"}
-              <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-            </label>
-          </div>
-        </div>
-        
-        <div className="flex items-center justify-end gap-4 pt-4">
-          {isEditMode && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <button type="button" className="mr-auto text-xs tracking-wider text-red-600 transition-colors hover:text-red-800 hover:underline">DELETE POST</button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Delete Post</DialogTitle>
-                  <DialogDescription>Are you sure? This action cannot be undone.</DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <button className="border border-[#e5e5e5] px-4 py-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]">Cancel</button>
-                  </DialogClose>
-                  <button onClick={handleDelete} disabled={isSubmitting} className="bg-red-600 px-4 py-2 text-xs tracking-wider text-white transition-colors hover:bg-red-700 disabled:opacity-50">{isSubmitting ? "Deleting..." : "Delete"}</button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-          <a href="/" className="border border-[#e5e5e5] px-6 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]">Cancel</a>
-          <button type="button" onClick={handlePreview} className="border border-[#e5e5e5] px-6 py-3 text-xs tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]">Preview</button>
-          <button type="submit" disabled={isSubmitting || isUploading} className="bg-[#080f18] px-8 py-3 text-xs tracking-wider text-white transition-colors hover:bg-[#1a2632] disabled:opacity-50">{isSubmitting ? isEditMode ? "Updating..." : "Publishing..." : isEditMode ? "Update Post" : "Publish"}</button>
-        </div>
-      </form>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Attachment</DialogTitle>
+            <DialogDescription>Are you sure you want to remove this file?</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button onClick={() => setFileToDelete(null)} className="px-4 py-2 text-xs">Cancel</button>
+            <button onClick={executeFileDelete} className="bg-red-600 text-white px-4 py-2 text-xs rounded">Delete</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
