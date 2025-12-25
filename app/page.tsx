@@ -31,9 +31,9 @@ export default async function Page({ searchParams }: PageProps) {
   return (
     <div className="min-h-screen bg-[#fafbfc]">
       {/* Hero */}
-      <section className="w-full bg-white py-12 border-b border-[#e5e5e5]">
+      <section className="w-full bg-white py-8 border-b border-[#e5e5e5]">
         <div className="mx-auto max-w-6xl px-6">
-          <div className="relative h-[300px] w-full overflow-hidden">
+          <div className="relative h-[250px] w-full overflow-hidden rounded-lg">
             <img
               src="/minimal-workspace-with-laptop-and-mathematical-equ.jpg"
               alt="Developer workspace"
