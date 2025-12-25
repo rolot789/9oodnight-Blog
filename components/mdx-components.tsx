@@ -63,5 +63,14 @@ export const mdxComponents = {
   td: (props: any) => (
     <td className="border border-[#e5e5e5] px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right" {...props} />
   ),
+  strong: (props: any) => <strong className="!font-bold text-inherit" {...props} />,
+  em: (props: any) => <em className="italic" {...props} />,
+  del: (props: any) => <del className="line-through" {...props} />,
+  code: (props: any) => (
+    <code
+      className="rounded bg-[#f0f0f0] px-1 py-0.5 font-mono text-sm text-[#c41d7f]"
+      {...props}
+    />
+  ),
   Image,
 }
