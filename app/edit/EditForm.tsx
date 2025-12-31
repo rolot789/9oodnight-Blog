@@ -16,7 +16,7 @@ const RealtimePreview = dynamic(() => import("@/components/RealtimePreview"), {
   ssr: false,
 })
 
-const categories = ["Mathematics", "Development", "DevOps", "Computer Science", "Research"]
+const categories = ["Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
 
 interface Attachment {
   filename: string

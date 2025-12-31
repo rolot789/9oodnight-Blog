@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server"
 import type { Post } from "@/lib/types"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 
-const CATEGORIES = ["All", "Mathematics", "Development", "DevOps", "Computer Science", "Research"]
+const CATEGORIES = ["All", "Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
 
 interface PageProps {
   searchParams: Promise<{
@@ -104,10 +105,15 @@ export default async function Page({ searchParams }: PageProps) {
                   </div>
                   <div className="flex flex-1 flex-col justify-between">
                     <div>
-                      <div className="mb-3 flex items-center gap-3">
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
                         <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
                           {post.category}
                         </span>
+                        {post.tags && post.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] font-normal tracking-wider">
+                            {tag}
+                          </Badge>
+                        ))}
                       </div>
                       <h2 className="mb-3 text-lg font-light tracking-wide text-[#080f18]">{post.title.toUpperCase()}</h2>
                       <p className="text-sm leading-relaxed text-[#8b8c89] line-clamp-3">{post.excerpt}</p>
