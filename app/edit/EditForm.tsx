@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog"
@@ -24,7 +24,7 @@ interface Attachment {
   filePath: string
 }
 
-export default function EditForm() {
+function EditFormContent() {
   const searchParams = useSearchParams()
   const postId = searchParams.get("id")
   const router = useRouter()
@@ -464,5 +464,13 @@ export default function EditForm() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function EditForm() {
+  return (
+    <Suspense fallback={<div className="text-center py-20">Loading editor...</div>}>
+      <EditFormContent />
+    </Suspense>
   )
 }

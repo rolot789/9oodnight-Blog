@@ -1,4 +1,3 @@
-import { Suspense } from "react"
 import EditForm from "./EditForm"
 
 export default function EditPage() {
@@ -6,9 +5,7 @@ export default function EditPage() {
     <div className="min-h-screen bg-[#fafbfc]">
       {/* Editor */}
       <main className="w-full py-12">
-        <Suspense fallback={<div className="text-center">Loading...</div>}>
-          <EditForm />
-        </Suspense>
+        <EditForm />
       </main>
 
       {/* Footer */}
