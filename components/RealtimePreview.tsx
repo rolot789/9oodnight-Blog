@@ -4,6 +4,8 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
 import rehypeKatex from "rehype-katex"
+import rehypeSlug from "rehype-slug"
+import rehypeRaw from "rehype-raw"
 import "katex/dist/katex.min.css"
 import CodeBlock from "./CodeBlock"
 import { mdxComponents } from "./mdx-components"
@@ -17,7 +19,7 @@ export default function RealtimePreview({ content }: RealtimePreviewProps) {
     <div className="prose prose-sm max-w-none text-[#080f18]">
       <ReactMarkdown
         remarkPlugins={[remarkMath, remarkGfm]}
-        rehypePlugins={[rehypeKatex]}
+        rehypePlugins={[rehypeSlug, rehypeKatex, rehypeRaw]}
         components={{
           ...mdxComponents,
           code: CodeBlock

@@ -38,6 +38,7 @@ export default function EditForm() {
   const [imageUrl, setImageUrl] = useState("")
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [fileToDelete, setFileToDelete] = useState<string | null>(null)
+  const [showDeletePostDialog, setShowDeletePostDialog] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
@@ -202,7 +203,10 @@ export default function EditForm() {
       toast.error(`Error: ${error.message}`)
     } else {
       toast.success(`Post ${isEditMode ? "updated" : "published"} successfully!`)
-      if (!isEditMode) {
+      if (isEditMode && postId) {
+        router.push(`/post/${postId}`)
+        router.refresh()
+      } else {
         setTitle("")
         setCategory("")
         setExcerpt("")
@@ -333,7 +337,7 @@ export default function EditForm() {
               {isEditMode && (
                 <button 
                   type="button" 
-                  onClick={() => {/* existing delete dialog trigger logic */}}
+                  onClick={() => setShowDeletePostDialog(true)}
                   className="mr-auto text-xs tracking-wider text-red-600 hover:underline"
                 >
                   DELETE POST
@@ -429,6 +433,22 @@ export default function EditForm() {
           </div>
         )}
       </div>
+
+      {/* Delete Post Confirmation Dialog */}
+      <Dialog open={showDeletePostDialog} onOpenChange={setShowDeletePostDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Post</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button onClick={() => setShowDeletePostDialog(false)} className="px-4 py-2 text-xs">Cancel</button>
+            <button onClick={handleDelete} className="bg-red-600 text-white px-4 py-2 text-xs rounded">Delete</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>

@@ -4,16 +4,16 @@ import CodeBlock from './CodeBlock'
 
 export const mdxComponents = {
   h1: (props: any) => (
-    <h1 className="mb-4 mt-8 text-3xl font-bold tracking-tight text-[#080f18]" {...props} />
+    <h1 className="mb-4 mt-8 text-3xl font-bold tracking-tight text-[#080f18] scroll-mt-24" {...props} />
   ),
   h2: (props: any) => (
-    <h2 className="mb-3 mt-6 text-2xl font-bold tracking-tight text-[#080f18]" {...props} />
+    <h2 className="mb-3 mt-6 text-2xl font-bold tracking-tight text-[#080f18] scroll-mt-24" {...props} />
   ),
   h3: (props: any) => (
-    <h3 className="mb-3 mt-5 text-xl font-bold tracking-tight text-[#080f18]" {...props} />
+    <h3 className="mb-3 mt-5 text-xl font-bold tracking-tight text-[#080f18] scroll-mt-24" {...props} />
   ),
   h4: (props: any) => (
-    <h4 className="mb-2 mt-4 text-lg font-bold tracking-tight text-[#080f18]" {...props} />
+    <h4 className="mb-2 mt-4 text-lg font-bold tracking-tight text-[#080f18] scroll-mt-24" {...props} />
   ),
   p: (props: any) => (
     <p className="mb-4 leading-7 text-[#080f18]" {...props} />
