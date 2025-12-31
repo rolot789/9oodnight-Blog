@@ -3,16 +3,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -63,63 +54,90 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#fafbfc]">
-      <Card className="w-full max-w-md border border-[#e5e5e5] bg-white shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl font-light tracking-wide text-[#080f18]">
-            Admin Login
-          </CardTitle>
-          <CardDescription className="text-xs tracking-wider text-[#8b8c89]">
-            Enter your credentials to log in.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {error && (
-              <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                {error}
+    <div className="min-h-screen bg-[#fafbfc]">
+      {/* Main Content */}
+      <div className="mx-auto max-w-6xl px-6 py-16">
+        {/* Back Link - Left aligned */}
+        <Link
+          href="/"
+          className="mb-12 inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Home
+        </Link>
+
+        <div className="flex flex-col items-center justify-center">
+          {/* Login Form Container */}
+          <div className="w-full max-w-sm">
+            {/* Header */}
+            <div className="mb-10 text-center">
+              <h1 className="mb-3 text-2xl font-light tracking-wide text-[#080f18]">
+                Admin Login
+              </h1>
+              <p className="text-xs tracking-wider text-[#8b8c89]">
+                Enter your credentials to continue
+              </p>
+            </div>
+
+            {/* Form */}
+            <div className="space-y-6">
+              {error && (
+                <div className="border-l-2 border-red-400 bg-red-50 py-3 pl-4 text-xs tracking-wider text-red-600">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label 
+                  htmlFor="email" 
+                  className="block text-xs font-bold tracking-widest text-[#080f18]"
+                >
+                  EMAIL
+                </label>
+                <input
+                  id="email"
+                  placeholder="admin@example.com"
+                  required
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="w-full border-b border-[#e5e5e5] bg-transparent py-3 pl-2 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#080f18]"
+                />
               </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs tracking-wider text-[#8b8c89]">
-                EMAIL
-              </Label>
-              <Input
-                id="email"
-                placeholder="admin@example.com"
-                required
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="border border-[#e5e5e5] text-sm placeholder-[#c0c0c0]"
-              />
+
+              <div className="space-y-2">
+                <label 
+                  htmlFor="password" 
+                  className="block text-xs font-bold tracking-widest text-[#080f18]"
+                >
+                  PASSWORD
+                </label>
+                <input
+                  id="password"
+                  required
+                  type="password"
+                  placeholder="••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="w-full border-b border-[#e5e5e5] bg-transparent py-3 pl-2 text-sm text-[#080f18] placeholder-[#c0c0c0] outline-none transition-colors focus:border-[#080f18]"
+                />
+              </div>
+
+              <button
+                className="mt-8 w-full border border-[#080f18] bg-[#080f18] py-3 text-xs font-medium tracking-widest text-white transition-all hover:bg-transparent hover:text-[#080f18] disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={handleSignIn}
+                disabled={isLoading}
+              >
+                {isLoading ? "LOGGING IN..." : "LOGIN"}
+              </button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-xs tracking-wider text-[#8b8c89]">
-                PASSWORD
-              </Label>
-              <Input
-                id="password"
-                required
-                type="password"
-                placeholder="••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="border border-[#e5e5e5] text-sm placeholder-[#c0c0c0]"
-              />
-            </div>
-            <Button
-              className="w-full bg-[#080f18] tracking-wider hover:bg-[#1a2632]"
-              onClick={handleSignIn}
-              disabled={isLoading}
-            >
-              {isLoading ? "LOGGING IN..." : "LOGIN"}
-            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
