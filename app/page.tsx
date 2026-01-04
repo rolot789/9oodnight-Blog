@@ -96,11 +96,11 @@ export default async function Page({ searchParams }: PageProps) {
             <div className="space-y-8">
               {blogPosts.map((post) => (
                 <article key={post.id} className="flex flex-col gap-6 bg-white p-6 shadow-sm md:flex-row transition-shadow hover:shadow-md">
-                  <div className="relative h-[220px] w-full flex-shrink-0 overflow-hidden md:h-[180px] md:w-[260px]">
+                  <div className="relative h-[220px] w-full flex-shrink-0 overflow-hidden md:h-auto md:min-h-[180px] md:w-[260px]">
                     <img
                       src={post.image_url || "/placeholder.svg?height=200&width=280&query=abstract"}
                       alt={post.title}
-                      className="h-full w-full object-cover"
+                      className="absolute inset-0 h-full w-full object-cover"
                     />
                   </div>
                   <div className="flex flex-1 flex-col justify-between">
