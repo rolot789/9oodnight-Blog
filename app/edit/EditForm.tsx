@@ -252,7 +252,7 @@ function EditFormContent() {
       excerpt,
       content,
       tags,
-      image_url: imageUrl || null,
+      image_url: imageUrl || "/Thumbnail.jpg",
       featured_image_path: featuredImagePath,
       attachments,
       read_time: `${Math.max(1, Math.ceil(content.split(" ").length / 200))} min`,
