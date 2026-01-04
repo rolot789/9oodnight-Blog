@@ -97,11 +97,13 @@ export default async function Page({ searchParams }: PageProps) {
               {blogPosts.map((post) => (
                 <article key={post.id} className="flex flex-col gap-6 bg-white p-6 shadow-sm md:flex-row transition-shadow hover:shadow-md">
                   <div className="relative h-[220px] w-full flex-shrink-0 overflow-hidden md:h-auto md:min-h-[180px] md:w-[260px]">
-                    <img
-                      src={post.image_url || "/placeholder.svg?height=200&width=280&query=abstract"}
-                      alt={post.title}
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
+                    <Link href={`/post/${post.id}`} className="absolute inset-0 h-full w-full">
+                      <img
+                        src={post.image_url || "/placeholder.svg?height=200&width=280&query=abstract"}
+                        alt={post.title}
+                        className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+                      />
+                    </Link>
                   </div>
                   <div className="flex flex-1 flex-col justify-between">
                     <div>
@@ -115,8 +117,10 @@ export default async function Page({ searchParams }: PageProps) {
                           </Badge>
                         ))}
                       </div>
-                      <h2 className="mb-3 text-lg font-light tracking-wide text-[#080f18]">{post.title.toUpperCase()}</h2>
-                      <p className="text-sm leading-relaxed text-[#8b8c89] line-clamp-3">{post.excerpt}</p>
+                      <Link href={`/post/${post.id}`} className="block group">
+                        <h2 className="mb-3 text-lg font-light tracking-wide text-[#080f18] transition-colors group-hover:text-[#6096ba]">{post.title.toUpperCase()}</h2>
+                        <p className="text-sm leading-relaxed text-[#8b8c89] line-clamp-3">{post.excerpt}</p>
+                      </Link>
                     </div>
                     <div className="mt-4 flex items-center justify-between border-t border-[#e5e5e5] pt-4">
                       <div className="flex items-center gap-4 text-[11px] text-[#8b8c89]">
