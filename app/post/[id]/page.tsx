@@ -79,14 +79,16 @@ export default async function PostPage({ params }: PostPageProps) {
             </div>
 
             {/* Featured Image */}
-            <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={post.image_url || "/placeholder.svg?height=400&width=800&query=abstract"}
-                alt={post.title}
-                className="h-full w-full object-cover"
-              />
-            </div>
+            {post.image_url && post.image_url !== "/Thumbnail.jpg" && (
+              <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={post.image_url}
+                  alt={post.title}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            )}
           </div>
 
           {/* Main Content */}

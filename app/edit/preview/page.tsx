@@ -104,7 +104,7 @@ export default function PreviewPage() {
             </div>
 
             {/* Featured Image */}
-            {previewData.imageUrl && (
+            {previewData.imageUrl && previewData.imageUrl !== "/Thumbnail.jpg" && (
               <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
                 <img
                   src={previewData.imageUrl}

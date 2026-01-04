@@ -5,6 +5,7 @@ export interface Post {
   excerpt: string
   content: string
   image_url: string | null
+  featured_image_path: string | null
   attachments: { filename: string; url: string; filePath: string }[] | null
   read_time: string
   created_at: string
