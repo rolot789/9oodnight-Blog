@@ -134,14 +134,8 @@ export default async function Page({ searchParams }: PageProps) {
                         </span>
                         <span>{post.read_time} read</span>
                       </div>
-                      {session ? (
+                      {session && (
                         <div className="flex gap-3">
-                          <Link
-                            href={`/post/${post.id}`}
-                            className="text-xs tracking-wider text-[#6096ba] transition-colors hover:text-[#4a7a9a]"
-                          >
-                            View
-                          </Link>
                           <Link
                             href={`/edit?id=${post.id}`}
                             className="text-xs tracking-wider text-[#6096ba] transition-colors hover:text-[#4a7a9a]"
@@ -149,13 +143,6 @@ export default async function Page({ searchParams }: PageProps) {
                             Edit
                           </Link>
                         </div>
-                      ) : (
-                        <Link
-                          href={`/post/${post.id}`}
-                          className="text-xs tracking-wider text-[#6096ba] transition-colors hover:text-[#4a7a9a]"
-                        >
-                          Read More
-                        </Link>
                       )}
                     </div>
                   </div>
