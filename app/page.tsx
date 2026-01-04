@@ -82,7 +82,7 @@ export default async function Page({ searchParams }: PageProps) {
               <div className="mb-10 flex justify-end">
                 <Link
                   href="/edit"
-                  className="flex items-center gap-2 border border-[#080f18] bg-transparent px-6 py-3 text-xs tracking-wider text-[#080f18] transition-all hover:bg-[#6096ba] hover:text-white hover:border-[#6096ba]"
+                  className="flex items-center gap-2 border border-[#080f18] bg-transparent px-6 py-3 text-xs tracking-wider text-[#080f18] transition-all hover:text-[#6096ba] hover:border-[#6096ba]"
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
