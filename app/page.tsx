@@ -36,7 +36,7 @@ export default async function Page({ searchParams }: PageProps) {
         <div className="mx-auto max-w-6xl px-6">
           <div className="relative h-[250px] w-full overflow-hidden bg-[#f8f9fa]">
             <img
-              src="/minimal-workspace-with-laptop-and-mathematical-equ.jpg"
+              src="/banner.jpg"
               alt="Developer workspace"
               className="h-full w-full object-cover"
             />
@@ -82,12 +82,12 @@ export default async function Page({ searchParams }: PageProps) {
               <div className="mb-10 flex justify-end">
                 <Link
                   href="/edit"
-                  className="flex items-center gap-2 border border-[#080f18] bg-[#080f18] px-6 py-3 text-xs tracking-wider text-white transition-all hover:bg-white hover:text-[#080f18]"
+                  className="flex items-center gap-2 border border-[#080f18] bg-transparent px-6 py-3 text-xs tracking-wider text-[#080f18] transition-all hover:bg-[#6096ba] hover:text-white hover:border-[#6096ba]"
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                   </svg>
-                  CREATE NEW POST
+                  CREATE
                 </Link>
               </div>
             )}
