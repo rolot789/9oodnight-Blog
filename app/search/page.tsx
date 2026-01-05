@@ -74,14 +74,20 @@ function SearchContent() {
 
     setIsSearching(true)
     
-    // Search in title, content, and tags
-    const { data, error } = await supabase
-      .from("posts")
-      .select("*")
-      .or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%,tags.cs.{"${searchQuery}"}`)
-      .order("created_at", { ascending: false })
+    let queryBuilder = supabase.from("posts").select("*")
 
-    if (!error && data) {
+    if (searchQuery.startsWith("#") && searchQuery.length > 1) {
+      const tagQuery = searchQuery.substring(1)
+      queryBuilder = queryBuilder.or(`tags::text.ilike.%${tagQuery}%`)
+    } else {
+      queryBuilder = queryBuilder.or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%,tags::text.ilike.%${searchQuery}%`)
+    }
+
+    const { data, error } = await queryBuilder.order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Search error:", error)
+    } else if (data) {
       setResults(data as Post[])
     }
     setIsSearching(false)
@@ -123,7 +129,7 @@ function SearchContent() {
               <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8b8c89]" />
               <Input
                 type="text"
-                placeholder="Search titles, content, or tags..."
+                placeholder="Search titles, content, or #tags..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
