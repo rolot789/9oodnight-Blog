@@ -78,9 +78,9 @@ function SearchContent() {
 
     if (searchQuery.startsWith("#") && searchQuery.length > 1) {
       const tagQuery = searchQuery.substring(1)
-      queryBuilder = queryBuilder.or(`tags::text.ilike.%${tagQuery}%`)
+      queryBuilder = queryBuilder.or(`tags_searchable.ilike.%${tagQuery}%`)
     } else {
-      queryBuilder = queryBuilder.or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%,tags::text.ilike.%${searchQuery}%`)
+      queryBuilder = queryBuilder.or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%,tags_searchable.ilike.%${searchQuery}%`)
     }
 
     const { data, error } = await queryBuilder.order("created_at", { ascending: false })
