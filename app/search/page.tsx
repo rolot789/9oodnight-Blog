@@ -8,6 +8,7 @@ import Link from "next/link"
 import { Search as SearchIcon, CornerDownLeft } from "lucide-react"
 import type { Post } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
+import { stripMarkdown } from "@/lib/utils"
 
 // Helper component for highlighting text
 const HighlightedText = ({ text, highlight }: { text: string; highlight: string }) => {
@@ -35,24 +36,25 @@ const HighlightedText = ({ text, highlight }: { text: string; highlight: string 
 
 // Helper to extract relevant snippet around the match
 const getRelevantSnippet = (content: string, query: string, maxLength = 200) => {
-  if (!query.trim()) return content.substring(0, maxLength) + (content.length > maxLength ? "..." : "")
+  const plainText = stripMarkdown(content)
+  if (!query.trim()) return plainText.substring(0, maxLength) + (plainText.length > maxLength ? "..." : "")
 
-  const lowerContent = content.toLowerCase()
+  const lowerContent = plainText.toLowerCase()
   const lowerQuery = query.toLowerCase()
   const matchIndex = lowerContent.indexOf(lowerQuery)
 
   // If query not found in content (maybe matched in title), show beginning
-  if (matchIndex === -1) return content.substring(0, maxLength) + (content.length > maxLength ? "..." : "")
+  if (matchIndex === -1) return plainText.substring(0, maxLength) + (plainText.length > maxLength ? "..." : "")
 
   // Calculate start and end indices to center the match
   const halfLength = maxLength / 2
   const start = Math.max(0, matchIndex - halfLength)
-  const end = Math.min(content.length, matchIndex + query.length + halfLength)
+  const end = Math.min(plainText.length, matchIndex + query.length + halfLength)
 
-  let snippet = content.substring(start, end)
+  let snippet = plainText.substring(start, end)
 
   if (start > 0) snippet = "..." + snippet
-  if (end < content.length) snippet = snippet + "..."
+  if (end < plainText.length) snippet = snippet + "..."
 
   return snippet
 }
