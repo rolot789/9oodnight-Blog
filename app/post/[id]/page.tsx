@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import { compileMDXContent } from "@/lib/mdx"
 import { mdxComponents } from "@/components/mdx-components"
 import Link from "next/link"
-import { Paperclip, Download } from "lucide-react"
+import { Paperclip, Download, Edit } from "lucide-react"
 import TableOfContents from "@/components/TableOfContents"
 import { Badge } from "@/components/ui/badge"
 
@@ -17,6 +17,8 @@ export default async function PostPage({ params }: PostPageProps) {
   const { id } = await params
   const supabase = await createClient()
   
+  const { data: { session } } = await supabase.auth.getSession()
+
   const { data: post, error } = await supabase
     .from("posts")
     .select("*")
@@ -37,16 +39,29 @@ export default async function PostPage({ params }: PostPageProps) {
           
           {/* Header Section (Title, Meta, Image) */}
           <div>
-            {/* Back Link */}
-            <Link
-              href="/"
-              className="mb-8 inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Home
-            </Link>
+            <div className="mb-8 flex items-center justify-between">
+              {/* Back Link */}
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Home
+              </Link>
+
+              {/* Edit Link - Visible if logged in */}
+              {session && (
+                <Link
+                  href={`/edit?id=${post.id}`}
+                  className="inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
+                >
+                  <Edit className="h-3 w-3" />
+                  EDIT POST
+                </Link>
+              )}
+            </div>
 
             {/* Category and Tags */}
             <div className="mb-4 flex flex-wrap items-center gap-2">

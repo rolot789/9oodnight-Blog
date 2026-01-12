@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { Github } from "lucide-react";
-import { SignUpModal } from "@/components/SignUpModal";
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -196,15 +196,7 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              <div className="mt-6 text-center">
-                 <SignUpModal>
-                    <button
-                      className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18] hover:underline"
-                    >
-                      DON'T HAVE AN ACCOUNT? SIGN UP
-                    </button>
-                 </SignUpModal>
-              </div>
+
 
             </div>
           </div>
