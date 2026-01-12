@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   // if "next" is in param, use it as the redirect URL
@@ -33,10 +33,7 @@ export async function GET(request: Request) {
         {
           cookies: {
             getAll() {
-                // Parse cookies from the request
-                // Note: In Next.js App Router route handlers, we interact with cookies differently
-                // but for exchangeCodeForSession, we mainly need to SET cookies on the response.
-                return []; 
+                return request.cookies.getAll();
             },
             setAll(cookiesToSet) {
               cookiesToSet.forEach(({ name, value, options }) => {

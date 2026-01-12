@@ -5,21 +5,20 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { Github } from "lucide-react";
+import { SignUpModal } from "@/components/SignUpModal";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
   const router = useRouter();
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const handleAuth = async () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       setError("Please enter both email and password");
       return;
@@ -27,36 +26,18 @@ export default function LoginPage() {
 
     setIsLoading(true);
     setError("");
-    setMessage("");
 
     try {
-      if (isSignUp) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (signUpError) {
-          setError(signUpError.message);
-        } else {
-          setMessage("Check your email for the confirmation link.");
-          // Optional: clear form or switch to login
-        }
+      if (signInError) {
+        setError(signInError.message || "Invalid credentials");
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (signInError) {
-          setError(signInError.message || "Invalid credentials");
-        } else {
-          router.push("/");
-          router.refresh();
-        }
+        router.push("/");
+        router.refresh();
       }
     } catch (err) {
       console.error("Error during auth:", err);
@@ -87,7 +68,7 @@ export default function LoginPage() {
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      handleAuth();
+      handleLogin();
     }
   };
 
@@ -112,10 +93,10 @@ export default function LoginPage() {
             {/* Header */}
             <div className="mb-10 text-center">
               <h1 className="mb-3 text-2xl font-light tracking-wide text-[#080f18]">
-                {isSignUp ? "Create Account" : "Welcome Back"}
+                Welcome Back
               </h1>
               <p className="text-xs tracking-wider text-[#8b8c89]">
-                {isSignUp ? "Sign up to start writing" : "Enter your credentials to continue"}
+                Enter your credentials to continue
               </p>
             </div>
 
@@ -124,11 +105,6 @@ export default function LoginPage() {
               {error && (
                 <div className="border-l-2 border-red-400 bg-red-50 py-3 pl-4 text-xs tracking-wider text-red-600">
                   {error}
-                </div>
-              )}
-              {message && (
-                <div className="border-l-2 border-green-400 bg-green-50 py-3 pl-4 text-xs tracking-wider text-green-700">
-                  {message}
                 </div>
               )}
 
@@ -172,10 +148,10 @@ export default function LoginPage() {
 
               <button
                 className="mt-8 w-full border border-[#080f18] bg-[#080f18] py-3 text-xs font-medium tracking-widest text-white transition-all hover:bg-transparent hover:text-[#080f18] disabled:cursor-not-allowed disabled:opacity-50"
-                onClick={handleAuth}
+                onClick={handleLogin}
                 disabled={isLoading}
               >
-                {isLoading ? "PROCESSING..." : (isSignUp ? "SIGN UP" : "LOGIN")}
+                {isLoading ? "PROCESSING..." : "LOGIN"}
               </button>
 
               <div className="relative flex items-center py-4">
@@ -221,16 +197,13 @@ export default function LoginPage() {
               </div>
 
               <div className="mt-6 text-center">
-                 <button
-                  onClick={() => {
-                    setIsSignUp(!isSignUp);
-                    setError("");
-                    setMessage("");
-                  }}
-                  className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18] hover:underline"
-                >
-                  {isSignUp ? "ALREADY HAVE AN ACCOUNT? LOGIN" : "DON'T HAVE AN ACCOUNT? SIGN UP"}
-                </button>
+                 <SignUpModal>
+                    <button
+                      className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18] hover:underline"
+                    >
+                      DON'T HAVE AN ACCOUNT? SIGN UP
+                    </button>
+                 </SignUpModal>
               </div>
 
             </div>
