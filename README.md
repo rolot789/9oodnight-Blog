@@ -94,7 +94,7 @@
 
 ## 📁 프로젝트 구조
 
-```
+\`\`\`
 my_blog/
 ├── app/                    # Next.js App Router
 │   ├── page.tsx           # 홈페이지 (게시글 목록)
@@ -119,7 +119,7 @@ my_blog/
 │   ├── utils.ts          # 공통 유틸리티
 │   └── supabase/         # Supabase 클라이언트
 └── public/               # 정적 파일
-```
+\`\`\`
 
 ## 🧠 동작 방식(구현 관점)
 
@@ -167,7 +167,7 @@ my_blog/
 
 예시(하나의 방법):
 
-```sql
+\`\`\`sql
 -- tags 배열을 공백으로 합친 문자열을 생성 컬럼으로 유지
 ALTER TABLE posts
 	ADD COLUMN IF NOT EXISTS tags_searchable text
@@ -175,7 +175,7 @@ ALTER TABLE posts
 
 CREATE INDEX IF NOT EXISTS idx_posts_tags_searchable
 	ON posts USING GIN (to_tsvector('simple', coalesce(tags_searchable, '')));
-```
+\`\`\`
 
 > 위 SQL은 “한 가지 예시”이며, 실제 운영에서는 FTS/pg_trgm 등 선호하는 방식으로 최적화할 수 있습니다.
 
@@ -195,22 +195,22 @@ CREATE INDEX IF NOT EXISTS idx_posts_tags_searchable
 
 ### 설치
 
-```bash
+\`\`\`bash
 # 의존성 설치
 pnpm install
 
 # 개발 서버 실행
 pnpm dev
-```
+\`\`\`
 
 ### 환경 변수
 
 `.env.local` 파일을 생성하고 다음 환경 변수를 설정하세요:
 
-```env
+\`\`\`env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
+\`\`\`
 
 ### Supabase 준비 체크리스트(요약)
 - Auth: Email/Password 로그인 활성화
