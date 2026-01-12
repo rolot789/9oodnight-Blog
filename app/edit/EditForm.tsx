@@ -44,9 +44,31 @@ function EditFormContent() {
   const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   const supabase = useMemo(() => createClient(), [])
   const isEditMode = postId !== null
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push("/login")
+        return
+      }
+      setUserId(user.id)
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single()
+      
+      setUserRole(profile?.role || "user")
+    }
+    checkUser()
+  }, [supabase, router])
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -55,6 +77,16 @@ function EditFormContent() {
         if (error) {
           toast.error(`Error: ${error.message}`)
         } else if (data) {
+          // Check permissions
+          const { data: { user } } = await supabase.auth.getUser()
+          const { data: profile } = await supabase.from("profiles").select("role").eq("id", user?.id).single()
+          
+          if (user?.id !== data.author_id && profile?.role !== 'admin') {
+             toast.error("You are not authorized to edit this post.")
+             router.push("/")
+             return
+          }
+
           setTitle(data.title)
           setCategory(data.category)
           setExcerpt(data.excerpt)
@@ -69,7 +101,7 @@ function EditFormContent() {
     if (isEditMode) {
       fetchPost()
     }
-  }, [postId, isEditMode, supabase])
+  }, [postId, isEditMode, supabase, router])
 
   const handlePreview = () => {
     const previewData = { title, category, excerpt, content, imageUrl, attachments, tags, postId }
@@ -264,7 +296,7 @@ function EditFormContent() {
       const { error: updateError } = await supabase.from("posts").update(postData).eq("id", postId)
       error = updateError
     } else {
-      const { error: insertError } = await supabase.from("posts").insert(postData)
+      const { error: insertError } = await supabase.from("posts").insert({ ...postData, author_id: userId })
       error = insertError
     }
 
