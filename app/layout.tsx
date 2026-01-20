@@ -4,7 +4,6 @@ import { Noto_Sans } from "next/font/google"
 import "./globals.css"
 import "katex/dist/katex.min.css";
 import Header from "@/components/Header"
-import { Toaster } from "@/components/ui/sonner"
 
 const fontSans = Noto_Sans({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -25,7 +24,6 @@ export default function RootLayout({
       <body className="antialiased">
         <Header />
         {children}
-        <Toaster />
       </body>
     </html>
   )
