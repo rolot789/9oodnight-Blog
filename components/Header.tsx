@@ -19,6 +19,9 @@ export default async function Header() {
           <Link href="/" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
             HOME
           </Link>
+          <Link href="/todo" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
+            TODO
+          </Link>
           {session ? (
             <LogoutButton />
           ) : (
