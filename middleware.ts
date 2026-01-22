@@ -32,11 +32,11 @@ export async function middleware(request: NextRequest) {
 
   if (isProtectedRoute) {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    // 세션이 없으면 로그인 페이지로 리다이렉트
-    if (!session) {
+    // 유저가 없으면 로그인 페이지로 리다이렉트
+    if (!user) {
       return NextResponse.redirect(new URL("/login", request.url))
     }
   }

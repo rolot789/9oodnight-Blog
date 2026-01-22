@@ -2,7 +2,7 @@
 const nextConfig = {
   transpilePackages: ['react-markdown', 'rehype-katex', 'remark-math', 'remark-gfm', 'katex'],
   typescript: {
-    ignoreBuildErrors: true,
+    // ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
 import { Input } from "@/components/ui/input"
 import {
@@ -10,33 +10,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Trash2, Plus, CheckCircle2, Circle, GripVertical, LayoutList, Kanban } from "lucide-react"
+import { Trash2, Plus, CheckCircle2, Circle, GripVertical, LayoutList, Kanban, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { Todo, TodoStatus } from "@/lib/types"
+import { TODO_CATEGORIES as CATEGORIES, STATUSES, STATUS_LABELS, CATEGORY_COLORS } from "@/lib/constants"
 
-const CATEGORIES = ["Draft", "General", "Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
-
-const STATUSES: TodoStatus[] = ["Icebox", "Draft", "Planned", "In Progress", "Done"]
-
-const STATUS_LABELS: Record<TodoStatus, string> = {
-  Icebox: "Icebox",
-  Draft: "Draft",
-  Planned: "진행예정",
-  "In Progress": "진행중",
-  Done: "완료",
-}
-
-const CATEGORY_COLORS: Record<string, string> = {
-  Draft: "text-gray-500 border-gray-500",
-  General: "text-[#6096ba] border-[#6096ba]",
-  Mathematics: "text-purple-600 border-purple-600",
-  Development: "text-emerald-600 border-emerald-600",
-  DevOps: "text-orange-600 border-orange-600",
-  "Computer Science": "text-blue-600 border-blue-600",
-  Crypto: "text-yellow-600 border-yellow-600",
-  Research: "text-rose-600 border-rose-600",
-}
+const PAGE_SIZE = 20
 
 export default function TodoPage() {
   const [todos, setTodos] = useState<Todo[]>([])
@@ -46,31 +26,78 @@ export default function TodoPage() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [view, setView] = useState<"list" | "kanban">("list")
   const [user, setUser] = useState<any>(null)
+  
+  // Pagination State
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+
   const supabase = createClient()
 
+  const fetchTodos = useCallback(async (nextPage: number, isLoadMore = false) => {
+    if (!isLoadMore) {
+      setIsLoaded(false)
+      setPage(0)
+    } else {
+      setIsLoadingMore(true)
+    }
+
+    let query = supabase
+      .from('todos')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (filterCategory !== "All") {
+      query = query.eq('category', filterCategory)
+    }
+
+    const from = nextPage * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data, error } = await query.range(from, to)
+    
+    if (error) {
+      console.error("Failed to fetch todos", JSON.stringify(error, null, 2))
+    } else if (data) {
+      const newTodos = data as Todo[]
+      
+      if (isLoadMore) {
+        setTodos(prev => {
+          const existingIds = new Set(prev.map(t => t.id))
+          const uniqueNewTodos = newTodos.filter(t => !existingIds.has(t.id))
+          return [...prev, ...uniqueNewTodos]
+        })
+        setPage(nextPage)
+      } else {
+        setTodos(newTodos)
+      }
+
+      setHasMore(newTodos.length === PAGE_SIZE)
+    }
+    
+    setIsLoaded(true)
+    setIsLoadingMore(false)
+  }, [filterCategory, supabase])
+
+  // Initial user check
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
     }
     checkUser()
+  }, [supabase])
 
-    const fetchTodos = async () => {
-      const { data, error } = await supabase
-        .from('todos')
-        .select('*')
-        .order('created_at', { ascending: false })
-      
-      if (error) {
-        console.error("Failed to fetch todos", JSON.stringify(error, null, 2))
-      } else if (data) {
-        setTodos(data as Todo[])
-      }
-      setIsLoaded(true)
+  // Fetch on filter change
+  useEffect(() => {
+    fetchTodos(0, false)
+  }, [fetchTodos])
+
+  const loadMore = () => {
+    if (!isLoadingMore && hasMore) {
+      fetchTodos(page + 1, true)
     }
-
-    fetchTodos()
-  }, [])
+  }
 
   const addTodo = async () => {
     if (!inputValue.trim()) return
@@ -90,7 +117,7 @@ export default function TodoPage() {
       user_id: user.id
     }
 
-    // Optimistic update
+    // Optimistic update: prepend to top
     setTodos([newTodo, ...todos])
     setInputValue("")
 
@@ -123,7 +150,6 @@ export default function TodoPage() {
     const newCompleted = !todo.completed
     const newStatus = newCompleted ? "Done" : "Draft"
 
-    // Optimistic update
     setTodos(
       todos.map((t) => {
         if (t.id === id) {
@@ -144,15 +170,11 @@ export default function TodoPage() {
 
     if (error) {
       console.error("Failed to toggle todo", error)
-      // Rollback (simplified, just toggling back)
+      // Rollback
       setTodos(
         todos.map((t) => {
           if (t.id === id) {
-            return { 
-              ...t, 
-              completed: !newCompleted,
-              status: todo.status
-            }
+            return { ...t, completed: !newCompleted, status: todo.status }
           }
           return t
         })
@@ -162,7 +184,6 @@ export default function TodoPage() {
 
   const deleteTodo = async (id: string) => {
     const prevTodos = [...todos]
-    // Optimistic update
     setTodos(todos.filter((t) => t.id !== id))
 
     const { error } = await supabase.from('todos').delete().eq('id', id)
@@ -188,23 +209,18 @@ export default function TodoPage() {
       const destStatus = destination.droppableId as TodoStatus
       const draggableId = result.draggableId
 
-      if (sourceStatus === destStatus) {
-         return; 
-      }
+      if (sourceStatus === destStatus) return; 
 
       const todo = todos.find(t => t.id === draggableId)
       if (!todo) return
 
-      // Optimistic update
       const updatedTodo = { 
         ...todo, 
         status: destStatus, 
         completed: destStatus === "Done" 
       }
 
-      setTodos(
-        todos.map(t => t.id === draggableId ? updatedTodo : t)
-      )
+      setTodos(todos.map(t => t.id === draggableId ? updatedTodo : t))
 
       const { error } = await supabase
         .from('todos')
@@ -213,12 +229,10 @@ export default function TodoPage() {
 
       if (error) {
          console.error("Failed to update status", error)
-         // Rollback
          setTodos(todos)
       }
 
     } else {
-      // List view reordering - only local since we don't have an order field in DB yet
       const newTodos = Array.from(todos)
       const [reorderedItem] = newTodos.splice(source.index, 1)
       newTodos.splice(destination.index, 0, reorderedItem)
@@ -228,11 +242,7 @@ export default function TodoPage() {
 
   const changeCategory = async (id: string, newCategory: string) => {
     const prevTodos = [...todos]
-    setTodos(
-      todos.map((t) =>
-        t.id === id ? { ...t, category: newCategory } : t
-      )
-    )
+    setTodos(todos.map((t) => t.id === id ? { ...t, category: newCategory } : t))
 
     const { error } = await supabase
       .from('todos')
@@ -247,11 +257,7 @@ export default function TodoPage() {
   
   const changeStatus = async (id: string, newStatus: TodoStatus) => {
     const prevTodos = [...todos]
-    setTodos(
-      todos.map((t) =>
-        t.id === id ? { ...t, status: newStatus, completed: newStatus === "Done" } : t
-      )
-    )
+    setTodos(todos.map((t) => t.id === id ? { ...t, status: newStatus, completed: newStatus === "Done" } : t))
 
     const { error } = await supabase
       .from('todos')
@@ -264,11 +270,10 @@ export default function TodoPage() {
     }
   }
 
-  const filteredTodos = filterCategory === "All" 
-    ? todos 
-    : todos.filter(t => t.category === filterCategory)
+  // NOTE: filteredTodos is now just 'todos' because filtering happens on server
+  const filteredTodos = todos;
 
-  if (!isLoaded) {
+  if (!isLoaded && page === 0) {
     return (
       <main className="min-h-screen bg-[#fafbfc] py-12 px-6">
         <div className="mx-auto max-w-6xl">
@@ -390,7 +395,7 @@ export default function TodoPage() {
                 />
                 <button
                   onClick={addTodo}
-                  className="bg-[#080f18] text-white px-8 py-2 text-xs tracking-widest hover:bg-[#6096ba] transition-all flex items-center justify-center gap-2 rounded-none h-11 uppercase"
+                  className="flex items-center justify-center gap-2 border border-[#080f18] bg-transparent px-8 py-2 text-xs tracking-widest text-[#080f18] transition-all hover:text-[#6096ba] hover:border-[#6096ba] rounded-none h-11 uppercase"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Add</span>
@@ -400,127 +405,143 @@ export default function TodoPage() {
 
             <DragDropContext onDragEnd={onDragEnd}>
               {view === "list" ? (
-                <Droppable droppableId="list-view">
-                  {(provided) => (
-                    <div 
-                      {...provided.droppableProps} 
-                      ref={provided.innerRef}
-                      className="space-y-4"
-                    >
-                      {filteredTodos.length === 0 ? (
-                        <div className="text-center py-20 text-[#8b8c89] text-xs tracking-widest border border-dashed border-[#e5e5e5] bg-white uppercase">
-                          No items found.
-                        </div>
-                      ) : (
-                        filteredTodos.map((todo, index) => (
-                          <Draggable key={todo.id} draggableId={todo.id} index={index}>
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                className={cn(
-                                  "group flex items-start sm:items-center justify-between p-6 border border-[#e5e5e5] bg-white transition-all hover:shadow-md select-none",
-                                  todo.completed && "opacity-60",
-                                  snapshot.isDragging && "shadow-lg rotate-1 z-50 bg-[#fafbfc]"
-                                )}
-                                style={provided.draggableProps.style}
-                              >
-                                <div className="flex items-start gap-4 flex-1 min-w-0">
-                                   <div 
-                                     {...provided.dragHandleProps} 
-                                     className="mt-1 sm:mt-0 text-[#e5e5e5] hover:text-[#080f18] cursor-grab active:cursor-grabbing"
-                                   >
-                                     <GripVertical className="h-5 w-5" />
-                                   </div>
-                                  <button
-                                    onClick={() => toggleTodo(todo.id)}
-                                    className="text-[#8b8c89] hover:text-[#080f18] transition-colors shrink-0 mt-1 sm:mt-0"
-                                  >
-                                    {todo.completed ? (
-                                      <CheckCircle2 className="h-5 w-5 text-[#6096ba]" />
-                                    ) : (
-                                      <Circle className="h-5 w-5" />
-                                    )}
-                                  </button>
-                                  <div className="flex flex-col gap-2 min-w-0 w-full">
-                                    <span
-                                      className={cn(
-                                        "text-base font-light tracking-wide text-[#080f18] break-words",
-                                        todo.completed && "line-through text-[#8b8c89]"
-                                      )}
+                <>
+                  <Droppable droppableId="list-view">
+                    {(provided) => (
+                      <div 
+                        {...provided.droppableProps} 
+                        ref={provided.innerRef}
+                        className="space-y-4"
+                      >
+                        {filteredTodos.length === 0 ? (
+                          <div className="text-center py-20 text-[#8b8c89] text-xs tracking-widest border border-dashed border-[#e5e5e5] bg-white uppercase">
+                            No items found.
+                          </div>
+                        ) : (
+                          filteredTodos.map((todo, index) => (
+                            <Draggable key={todo.id} draggableId={todo.id} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  className={cn(
+                                    "group flex items-start sm:items-center justify-between p-6 border border-[#e5e5e5] bg-white transition-all hover:shadow-md select-none",
+                                    todo.completed && "opacity-60",
+                                    snapshot.isDragging && "shadow-lg rotate-1 z-50 bg-[#fafbfc]"
+                                  )}
+                                  style={provided.draggableProps.style}
+                                >
+                                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                                     <div 
+                                       {...provided.dragHandleProps} 
+                                       className="mt-1 sm:mt-0 text-[#e5e5e5] hover:text-[#080f18] cursor-grab active:cursor-grabbing"
+                                     >
+                                       <GripVertical className="h-5 w-5" />
+                                     </div>
+                                    <button
+                                      onClick={() => toggleTodo(todo.id)}
+                                      className="text-[#8b8c89] hover:text-[#080f18] transition-colors shrink-0 mt-1 sm:mt-0"
                                     >
-                                      {todo.text}
-                                    </span>
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                      {/* Category Select */}
-                                      <Select 
-                                        value={todo.category} 
-                                        onValueChange={(val) => changeCategory(todo.id, val)}
+                                      {todo.completed ? (
+                                        <CheckCircle2 className="h-5 w-5 text-[#6096ba]" />
+                                      ) : (
+                                        <Circle className="h-5 w-5" />
+                                      )}
+                                    </button>
+                                    <div className="flex flex-col gap-2 min-w-0 w-full">
+                                      <span
+                                        className={cn(
+                                          "text-base font-light tracking-wide text-[#080f18] break-words",
+                                          todo.completed && "line-through text-[#8b8c89]"
+                                        )}
                                       >
-                                        <SelectTrigger className="h-auto w-auto p-0 border-none bg-transparent focus:ring-0">
-                                          <span 
-                                            className={cn(
-                                              "border px-2 py-0.5 text-[9px] font-normal tracking-wider uppercase cursor-pointer hover:opacity-80 transition-opacity",
-                                              CATEGORY_COLORS[todo.category] || "text-[#6096ba] border-[#6096ba]"
-                                            )}
-                                          >
-                                            {todo.category}
-                                          </span>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {CATEGORIES.map((cat) => (
-                                            <SelectItem key={cat} value={cat}>
-                                              {cat.toUpperCase()}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                      
-                                      {/* Status Select */}
-                                       <Select 
-                                        value={todo.status} 
-                                        onValueChange={(val) => changeStatus(todo.id, val as TodoStatus)}
-                                      >
-                                        <SelectTrigger className="h-auto w-auto p-0 border-none bg-transparent focus:ring-0">
-                                          <span className="text-[10px] tracking-wider text-[#8b8c89] uppercase hover:text-[#080f18] transition-colors">
-                                            {STATUS_LABELS[todo.status]}
-                                          </span>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {STATUSES.map((status) => (
-                                            <SelectItem key={status} value={status}>
-                                              {STATUS_LABELS[status]}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-
-                                      <span className="text-[10px] tracking-wider text-[#c0c0c0] uppercase">
-                                        {new Date(todo.created_at).toLocaleDateString("en-US", {
-                                          month: "short",
-                                          day: "numeric",
-                                          year: "numeric",
-                                        })}
+                                        {todo.text}
                                       </span>
+                                      <div className="flex items-center gap-3 flex-wrap">
+                                        {/* Category Select */}
+                                        <Select 
+                                          value={todo.category} 
+                                          onValueChange={(val) => changeCategory(todo.id, val)}
+                                        >
+                                          <SelectTrigger className="h-auto w-auto p-0 border-none bg-transparent focus:ring-0">
+                                            <span 
+                                              className={cn(
+                                                "border px-2 py-0.5 text-[9px] font-normal tracking-wider uppercase cursor-pointer hover:opacity-80 transition-opacity",
+                                                CATEGORY_COLORS[todo.category] || "text-[#6096ba] border-[#6096ba]"
+                                              )}
+                                            >
+                                              {todo.category}
+                                            </span>
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {CATEGORIES.map((cat) => (
+                                              <SelectItem key={cat} value={cat}>
+                                                {cat.toUpperCase()}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        
+                                        {/* Status Select */}
+                                         <Select 
+                                          value={todo.status} 
+                                          onValueChange={(val) => changeStatus(todo.id, val as TodoStatus)}
+                                        >
+                                          <SelectTrigger className="h-auto w-auto p-0 border-none bg-transparent focus:ring-0">
+                                            <span className="text-[10px] tracking-wider text-[#8b8c89] uppercase hover:text-[#080f18] transition-colors">
+                                              {STATUS_LABELS[todo.status]}
+                                            </span>
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {STATUSES.map((status) => (
+                                              <SelectItem key={status} value={status}>
+                                                {STATUS_LABELS[status]}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+  
+                                        <span className="text-[10px] tracking-wider text-[#c0c0c0] uppercase">
+                                          {new Date(todo.created_at).toLocaleDateString("en-US", {
+                                            month: "short",
+                                            day: "numeric",
+                                            year: "numeric",
+                                          })}
+                                        </span>
+                                      </div>
                                     </div>
                                   </div>
+                                  <button
+                                    onClick={() => deleteTodo(todo.id)}
+                                    className="opacity-0 group-hover:opacity-100 text-[#c0c0c0] hover:text-[#080f18] transition-all p-2 shrink-0"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={() => deleteTodo(todo.id)}
-                                  className="opacity-0 group-hover:opacity-100 text-[#c0c0c0] hover:text-[#080f18] transition-all p-2 shrink-0"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            )}
-                          </Draggable>
-                        ))
-                      )}
-                      {provided.placeholder}
+                              )}
+                            </Draggable>
+                          ))
+                        )}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+
+                  {/* Load More Button */}
+                  {hasMore && todos.length >= PAGE_SIZE && (
+                    <div className="flex justify-center pt-8">
+                      <button
+                        onClick={loadMore}
+                        disabled={isLoadingMore}
+                        className="flex items-center gap-2 border border-[#e5e5e5] bg-white px-8 py-3 text-xs tracking-widest text-[#080f18] transition-colors hover:border-[#080f18] hover:bg-[#fafbfc] disabled:opacity-50"
+                      >
+                        {isLoadingMore ? "LOADING..." : "LOAD MORE"}
+                        {!isLoadingMore && <ChevronDown className="h-4 w-4" />}
+                      </button>
                     </div>
                   )}
-                </Droppable>
+                </>
               ) : (
                 <div className="flex gap-4 overflow-x-auto pb-6 items-start">
                   {STATUSES.map((status) => (
@@ -588,6 +609,18 @@ export default function TodoPage() {
                       </Droppable>
                     </div>
                   ))}
+                   {/* Load More Button for Kanban */}
+                   {hasMore && todos.length >= PAGE_SIZE && (
+                    <div className="flex-none min-w-[200px] flex items-center justify-center">
+                       <button
+                        onClick={loadMore}
+                        disabled={isLoadingMore}
+                        className="h-12 w-full border border-[#e5e5e5] bg-white text-xs tracking-widest text-[#080f18] transition-colors hover:border-[#080f18] hover:bg-[#fafbfc] disabled:opacity-50"
+                      >
+                        {isLoadingMore ? "..." : "LOAD MORE"}
+                      </button>
+                    </div>
+                   )}
                 </div>
               )}
             </DragDropContext>

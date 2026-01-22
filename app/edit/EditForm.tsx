@@ -12,12 +12,11 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import dynamic from "next/dynamic"
 import TableOfContents from "@/components/TableOfContents"
+import { POST_CATEGORIES as categories, DEFAULT_IMAGES } from "@/lib/constants"
 
 const RealtimePreview = dynamic(() => import("@/components/RealtimePreview"), {
   ssr: false,
 })
-
-const categories = ["Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
 
 interface Attachment {
   filename: string
@@ -36,7 +35,7 @@ function EditFormContent() {
   const [content, setContent] = useState("")
   const [tags, setTags] = useState<string[]>([])
   const [currentTag, setCurrentTag] = useState("")
-  const [imageUrl, setImageUrl] = useState("/Thumbnail.jpg")
+  const [imageUrl, setImageUrl] = useState(DEFAULT_IMAGES.THUMBNAIL)
   const [featuredImagePath, setFeaturedImagePath] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [fileToDelete, setFileToDelete] = useState<string | null>(null)
@@ -82,7 +81,7 @@ function EditFormContent() {
           setExcerpt(data.excerpt)
           setContent(data.content)
           setTags(data.tags || [])
-          setImageUrl(data.image_url || "/Thumbnail.jpg")
+          setImageUrl(data.image_url || DEFAULT_IMAGES.THUMBNAIL)
           setFeaturedImagePath(data.featured_image_path || null)
           setAttachments(data.attachments || [])
         }
@@ -212,7 +211,7 @@ function EditFormContent() {
 
   const handleFeaturedImageRemove = async () => {
     if (!featuredImagePath) {
-      setImageUrl("/Thumbnail.jpg")
+      setImageUrl(DEFAULT_IMAGES.THUMBNAIL)
       return
     }
 
@@ -225,7 +224,7 @@ function EditFormContent() {
       return
     }
 
-    setImageUrl("/Thumbnail.jpg")
+    setImageUrl(DEFAULT_IMAGES.THUMBNAIL)
     setFeaturedImagePath(null)
     setIsUploading(false)
   }
@@ -274,7 +273,7 @@ function EditFormContent() {
       excerpt,
       content,
       tags,
-      image_url: imageUrl || "/Thumbnail.jpg",
+      image_url: imageUrl || DEFAULT_IMAGES.THUMBNAIL,
       featured_image_path: featuredImagePath,
       attachments,
       read_time: `${Math.max(1, Math.ceil(content.split(" ").length / 200))} min`,
@@ -372,7 +371,7 @@ function EditFormContent() {
               <div>
                 <label className="mb-2 block text-xs tracking-wider text-[#8b8c89]">FEATURED IMAGE</label>
                 <div className="h-11"> 
-                  {imageUrl && imageUrl !== "/Thumbnail.jpg" ? (
+                  {imageUrl && imageUrl !== DEFAULT_IMAGES.THUMBNAIL ? (
                     <div className="flex h-full items-center justify-between rounded-none border border-[#e5e5e5] bg-white px-4">
                       <div className="flex items-center gap-3 overflow-hidden">
                         <div className="h-6 w-6 shrink-0 overflow-hidden rounded-none bg-gray-100">
@@ -512,7 +511,7 @@ function EditFormContent() {
                   </div>
 
                   {/* Featured Image */}
-                  {imageUrl && imageUrl !== "/Thumbnail.jpg" && (
+                  {imageUrl && imageUrl !== DEFAULT_IMAGES.THUMBNAIL && (
                     <div className="relative mb-10 h-[300px] w-full overflow-hidden md:h-[400px]">
                       <img
                         src={imageUrl}
