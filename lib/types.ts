@@ -12,3 +12,15 @@ export interface Post {
   updated_at: string
   tags: string[] | null
 }
+
+export type TodoStatus = "Icebox" | "Draft" | "Planned" | "In Progress" | "Done"
+
+export interface Todo {
+  id: string
+  text: string
+  category: string
+  status: TodoStatus
+  completed: boolean
+  created_at: string
+  user_id?: string
+}

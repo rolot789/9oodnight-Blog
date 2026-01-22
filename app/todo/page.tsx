@@ -12,17 +12,8 @@ import {
 } from "@/components/ui/select"
 import { Trash2, Plus, CheckCircle2, Circle, GripVertical, LayoutList, Kanban } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-type TodoStatus = "Icebox" | "Draft" | "Planned" | "In Progress" | "Done"
-
-interface Todo {
-  id: string
-  text: string
-  category: string
-  status: TodoStatus
-  completed: boolean
-  createdAt: number
-}
+import { createClient } from "@/lib/supabase/client"
+import { Todo, TodoStatus } from "@/lib/types"
 
 const CATEGORIES = ["Draft", "General", "Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
 
@@ -54,64 +45,132 @@ export default function TodoPage() {
   const [filterCategory, setFilterCategory] = useState<string>("All")
   const [isLoaded, setIsLoaded] = useState(false)
   const [view, setView] = useState<"list" | "kanban">("list")
+  const [user, setUser] = useState<any>(null)
+  const supabase = createClient()
 
   useEffect(() => {
-    const saved = localStorage.getItem("gemini-blog-todos")
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        // Migration: Ensure all todos have a status
-        const migrated = parsed.map((t: any) => ({
-          ...t,
-          status: t.status || (t.completed ? "Done" : "Draft"),
-          completed: t.status === "Done" || t.completed
-        }))
-        setTodos(migrated)
-      } catch (e) {
-        console.error("Failed to load todos", e)
-      }
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
     }
-    setIsLoaded(true)
+    checkUser()
+
+    const fetchTodos = async () => {
+      const { data, error } = await supabase
+        .from('todos')
+        .select('*')
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error("Failed to fetch todos", JSON.stringify(error, null, 2))
+      } else if (data) {
+        setTodos(data as Todo[])
+      }
+      setIsLoaded(true)
+    }
+
+    fetchTodos()
   }, [])
 
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem("gemini-blog-todos", JSON.stringify(todos))
-    }
-  }, [todos, isLoaded])
-
-  const addTodo = () => {
+  const addTodo = async () => {
     if (!inputValue.trim()) return
+    if (!user) {
+      alert("You must be logged in to add todos")
+      return
+    }
+
+    const tempId = crypto.randomUUID()
     const newTodo: Todo = {
-      id: crypto.randomUUID(),
+      id: tempId,
       text: inputValue.trim(),
       category,
-      status: "Draft", // Default status
+      status: "Draft",
       completed: false,
-      createdAt: Date.now(),
+      created_at: new Date().toISOString(),
+      user_id: user.id
     }
+
+    // Optimistic update
     setTodos([newTodo, ...todos])
     setInputValue("")
+
+    const { data, error } = await supabase
+      .from('todos')
+      .insert({
+        text: newTodo.text,
+        category: newTodo.category,
+        status: newTodo.status,
+        completed: newTodo.completed,
+        user_id: user.id
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Failed to add todo", JSON.stringify(error, null, 2))
+      // Rollback
+      setTodos((prev) => prev.filter((t) => t.id !== tempId))
+    } else if (data) {
+      // Replace temp ID with real ID
+      setTodos((prev) => prev.map((t) => (t.id === tempId ? (data as Todo) : t)))
+    }
   }
 
-  const toggleTodo = (id: string) => {
+  const toggleTodo = async (id: string) => {
+    const todo = todos.find((t) => t.id === id)
+    if (!todo) return
+
+    const newCompleted = !todo.completed
+    const newStatus = newCompleted ? "Done" : "Draft"
+
+    // Optimistic update
     setTodos(
       todos.map((t) => {
         if (t.id === id) {
-          const newCompleted = !t.completed
           return { 
             ...t, 
             completed: newCompleted,
-            status: newCompleted ? "Done" : "Draft"
+            status: newStatus as TodoStatus
           }
         }
         return t
       })
     )
+
+    const { error } = await supabase
+      .from('todos')
+      .update({ completed: newCompleted, status: newStatus })
+      .eq('id', id)
+
+    if (error) {
+      console.error("Failed to toggle todo", error)
+      // Rollback (simplified, just toggling back)
+      setTodos(
+        todos.map((t) => {
+          if (t.id === id) {
+            return { 
+              ...t, 
+              completed: !newCompleted,
+              status: todo.status
+            }
+          }
+          return t
+        })
+      )
+    }
   }
 
-  const deleteTodo = (id: string) => {
+  const deleteTodo = async (id: string) => {
+    const prevTodos = [...todos]
+    // Optimistic update
     setTodos(todos.filter((t) => t.id !== id))
+
+    const { error } = await supabase.from('todos').delete().eq('id', id)
+
+    if (error) {
+      console.error("Failed to delete todo", error)
+      setTodos(prevTodos)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -120,39 +179,46 @@ export default function TodoPage() {
     }
   }
 
-  const onDragEnd = (result: DropResult) => {
+  const onDragEnd = async (result: DropResult) => {
     const { source, destination } = result
     if (!destination) return
 
     if (view === "kanban") {
-      // In Kanban view, dragging changes status
       const sourceStatus = source.droppableId as TodoStatus
       const destStatus = destination.droppableId as TodoStatus
       const draggableId = result.draggableId
 
       if (sourceStatus === destStatus) {
-         // Reordering within the same column is not implemented for simplicity in this version,
-         // or can be added if needed. For now we just update status if changed, 
-         // but strictly speaking we should reorder.
-         // Let's just reorder locally.
-         const columnTodos = todos.filter(t => t.status === sourceStatus)
-         // Since 'todos' is a flat list, reordering within a subset based on index is tricky 
-         // without a dedicated 'order' field. 
-         // For this implementation, we will skip reordering within Kanban columns 
-         // unless we refactor to store items by status or add an order index.
          return; 
       }
 
+      const todo = todos.find(t => t.id === draggableId)
+      if (!todo) return
+
+      // Optimistic update
+      const updatedTodo = { 
+        ...todo, 
+        status: destStatus, 
+        completed: destStatus === "Done" 
+      }
+
       setTodos(
-        todos.map(t => 
-          t.id === draggableId 
-            ? { ...t, status: destStatus, completed: destStatus === "Done" }
-            : t
-        )
+        todos.map(t => t.id === draggableId ? updatedTodo : t)
       )
 
+      const { error } = await supabase
+        .from('todos')
+        .update({ status: destStatus, completed: destStatus === "Done" })
+        .eq('id', draggableId)
+
+      if (error) {
+         console.error("Failed to update status", error)
+         // Rollback
+         setTodos(todos)
+      }
+
     } else {
-      // List view reordering
+      // List view reordering - only local since we don't have an order field in DB yet
       const newTodos = Array.from(todos)
       const [reorderedItem] = newTodos.splice(source.index, 1)
       newTodos.splice(destination.index, 0, reorderedItem)
@@ -160,20 +226,42 @@ export default function TodoPage() {
     }
   }
 
-  const changeCategory = (id: string, newCategory: string) => {
+  const changeCategory = async (id: string, newCategory: string) => {
+    const prevTodos = [...todos]
     setTodos(
       todos.map((t) =>
         t.id === id ? { ...t, category: newCategory } : t
       )
     )
+
+    const { error } = await supabase
+      .from('todos')
+      .update({ category: newCategory })
+      .eq('id', id)
+
+    if (error) {
+      console.error("Failed to update category", error)
+      setTodos(prevTodos)
+    }
   }
   
-  const changeStatus = (id: string, newStatus: TodoStatus) => {
+  const changeStatus = async (id: string, newStatus: TodoStatus) => {
+    const prevTodos = [...todos]
     setTodos(
       todos.map((t) =>
         t.id === id ? { ...t, status: newStatus, completed: newStatus === "Done" } : t
       )
     )
+
+    const { error } = await supabase
+      .from('todos')
+      .update({ status: newStatus, completed: newStatus === "Done" })
+      .eq('id', id)
+    
+    if (error) {
+      console.error("Failed to update status", error)
+      setTodos(prevTodos)
+    }
   }
 
   const filteredTodos = filterCategory === "All" 
@@ -188,6 +276,20 @@ export default function TodoPage() {
               <div className="h-8 w-32 bg-gray-200 rounded mb-2"></div>
               <div className="h-4 w-48 bg-gray-100 rounded"></div>
            </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (!user) {
+    return (
+      <main className="min-h-screen bg-[#fafbfc] py-12 px-6 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-light tracking-wide text-[#080f18] mb-4">Login Required</h1>
+          <p className="text-[#8b8c89] mb-6 text-sm">Please login to manage your todos.</p>
+          <a href="/login" className="inline-block bg-[#080f18] text-white px-6 py-2 text-xs tracking-widest hover:bg-[#6096ba] transition-all uppercase">
+            Go to Login
+          </a>
         </div>
       </main>
     )
@@ -394,7 +496,7 @@ export default function TodoPage() {
                                       </Select>
 
                                       <span className="text-[10px] tracking-wider text-[#c0c0c0] uppercase">
-                                        {new Date(todo.createdAt).toLocaleDateString("en-US", {
+                                        {new Date(todo.created_at).toLocaleDateString("en-US", {
                                           month: "short",
                                           day: "numeric",
                                           year: "numeric",
