@@ -13,15 +13,35 @@ export default function TableOfContents() {
   const [activeId, setActiveId] = useState<string>("")
 
   useEffect(() => {
-    // Wait for content to render
+    // Wait for BlockNote content to render and heading IDs to be added
     const timeoutId = setTimeout(() => {
-      const elements = Array.from(document.querySelectorAll("article h1, article h2, article h3"))
-        .map((elem) => ({
-          id: elem.id,
-          text: elem.textContent || "",
-          level: Number(elem.tagName.substring(1)),
-        }))
-        .filter((item) => item.id) // Filter items with IDs
+      // Find BlockNote headings with data-content-type="heading"
+      const selectors = "[data-content-type='heading'][id]"
+
+      const seenIds = new Set<string>()
+      const elements = Array.from(document.querySelectorAll(selectors))
+        .map((elem) => {
+          // Get level from data-level attribute or tag name
+          let level = 2 // default
+          if (elem.getAttribute('data-level')) {
+            level = Number(elem.getAttribute('data-level'))
+          } else if (elem.tagName.match(/^H[1-3]$/)) {
+            level = Number(elem.tagName.substring(1))
+          }
+          return {
+            id: elem.id,
+            text: elem.textContent || "",
+            level: level,
+          }
+        })
+        .filter((item) => {
+          // Filter items with IDs and text, and deduplicate
+          if (!item.id || !item.text || seenIds.has(item.id)) {
+            return false
+          }
+          seenIds.add(item.id)
+          return true
+        })
 
       setHeadings(elements)
 
@@ -42,7 +62,7 @@ export default function TableOfContents() {
       })
 
       return () => observer.disconnect()
-    }, 100) // Small delay to ensure MDX is rendered
+    }, 500) // Longer delay to ensure BlockNote content is fully rendered
 
     return () => clearTimeout(timeoutId)
   }, []) // Empty dependency array means this runs once on mount
@@ -50,7 +70,7 @@ export default function TableOfContents() {
   if (headings.length === 0) return null
 
   return (
-    <nav className="sticky top-24 hidden h-fit w-[240px] shrink-0 xl:block ml-12">
+    <nav className="h-fit w-full">
       <h4 className="mb-4 text-xs font-bold tracking-widest text-[#080f18]">ON THIS PAGE</h4>
       <ul className="space-y-3 text-xs">
         {headings.map((heading) => (

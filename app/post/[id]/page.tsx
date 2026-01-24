@@ -132,8 +132,8 @@ export default async function PostPage({ params }: PostPageProps) {
             </div>
           )}
 
-          {/* ToC Sidebar (Absolute positioned relative to main content) */}
-          <aside className="hidden xl:block absolute left-full top-0 ml-12 h-full">
+          {/* ToC Sidebar - Fixed to left side */}
+          <aside className="hidden xl:block fixed left-8 top-24 w-[240px]">
              <TableOfContents />
           </aside>
 

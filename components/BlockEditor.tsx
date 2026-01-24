@@ -116,13 +116,23 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
           margin: 0;
         }
         
-        .blocknote-wrapper .bn-block-outer:hover .bn-side-menu {
-          opacity: 1;
-        }
-        
+        /* Side menu (drag handle + add button) */
         .blocknote-wrapper .bn-side-menu {
           opacity: 0;
           transition: opacity 0.15s ease;
+          display: flex !important;
+          visibility: visible !important;
+        }
+        
+        .blocknote-wrapper .bn-block-outer:hover .bn-side-menu,
+        .blocknote-wrapper .bn-side-menu:hover {
+          opacity: 1;
+        }
+        
+        .blocknote-wrapper .bn-drag-handle,
+        .blocknote-wrapper .bn-add-block-button {
+          display: flex !important;
+          visibility: visible !important;
         }
         
         .blocknote-wrapper .bn-inline-content code {

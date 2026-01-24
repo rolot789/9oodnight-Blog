@@ -25,6 +25,16 @@ function isHTML(content: string): boolean {
   )
 }
 
+// Generate slug from text for heading IDs
+function generateSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9가-힣\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+}
+
 export default function BlockNoteViewer({ content, className = "" }: BlockNoteViewerProps) {
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -56,6 +66,39 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
     }
     loadContent()
   }, [content, editor])
+
+  // Add IDs to headings after content is loaded for ToC
+  useEffect(() => {
+    if (!isLoaded) return
+    
+    const addHeadingIds = () => {
+      // BlockNote renders headings in various ways - try all possible selectors
+      const selectors = [
+        '.blocknote-viewer-wrapper h1',
+        '.blocknote-viewer-wrapper h2', 
+        '.blocknote-viewer-wrapper h3',
+        '.blocknote-viewer-wrapper [data-level="1"]',
+        '.blocknote-viewer-wrapper [data-level="2"]',
+        '.blocknote-viewer-wrapper [data-level="3"]',
+        '.blocknote-viewer-wrapper [data-content-type="heading"]',
+        '.blocknote-viewer [data-content-type="heading"]',
+        '.bn-block-content[data-content-type="heading"]'
+      ].join(', ')
+      
+      const headings = document.querySelectorAll(selectors)
+      
+      headings.forEach((heading, index) => {
+        if (!heading.id && heading.textContent) {
+          const slug = generateSlug(heading.textContent)
+          heading.id = slug || `heading-${index}`
+        }
+      })
+    }
+    
+    // Small delay to ensure BlockNote has rendered
+    const timeoutId = setTimeout(addHeadingIds, 200)
+    return () => clearTimeout(timeoutId)
+  }, [isLoaded])
 
   if (!isLoaded) {
     return (
@@ -151,6 +194,7 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
           margin-top: 2rem;
           margin-bottom: 0.75rem;
           line-height: 1.3;
+          scroll-margin-top: 50px;
         }
         
         .blocknote-viewer-wrapper h2,
@@ -160,6 +204,7 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
           margin-top: 1.75rem;
           margin-bottom: 0.5rem;
           line-height: 1.35;
+          scroll-margin-top: 50px;
         }
         
         .blocknote-viewer-wrapper h3,
@@ -168,6 +213,7 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
           font-weight: 600;
           margin-top: 1.5rem;
           margin-bottom: 0.5rem;
+          scroll-margin-top: 50px;
         }
         
         .blocknote-viewer-wrapper blockquote,
