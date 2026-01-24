@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
 import { Input } from "@/components/ui/input"
 import {
@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Trash2, Plus, CheckCircle2, Circle, GripVertical, LayoutList, Kanban, ChevronDown } from "lucide-react"
+import { Trash2, Plus, CheckCircle2, Circle, GripVertical, LayoutList, Kanban, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { Todo, TodoStatus } from "@/lib/types"
@@ -31,6 +31,20 @@ export default function TodoPage() {
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: -300, behavior: 'smooth' })
+    }
+  }
+
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: 300, behavior: 'smooth' })
+    }
+  }
 
   const supabase = createClient()
 
@@ -543,7 +557,29 @@ export default function TodoPage() {
                   )}
                 </>
               ) : (
-                <div className="flex gap-4 overflow-x-auto pb-6 items-start">
+                <div className="relative group/kanban px-12">
+                   {/* Left Arrow */}
+                   <button
+                     onClick={scrollLeft}
+                     className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-[#e5e5e5] p-2 text-[#080f18] shadow-md hover:bg-[#fafbfc] hover:border-[#080f18] transition-all disabled:opacity-50 rounded-none"
+                     aria-label="Scroll left"
+                   >
+                     <ChevronLeft className="h-5 w-5" />
+                   </button>
+
+                   {/* Right Arrow */}
+                   <button
+                     onClick={scrollRight}
+                     className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-[#e5e5e5] p-2 text-[#080f18] shadow-md hover:bg-[#fafbfc] hover:border-[#080f18] transition-all disabled:opacity-50 rounded-none"
+                      aria-label="Scroll right"
+                   >
+                     <ChevronRight className="h-5 w-5" />
+                   </button>
+
+                  <div 
+                    ref={scrollContainerRef}
+                    className="flex gap-4 overflow-x-auto pb-6 items-start [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                  >
                   {STATUSES.map((status) => (
                     <div key={status} className="flex-1 min-w-[280px]">
                       <h3 className="text-xs font-bold tracking-widest text-[#080f18] mb-4 uppercase border-b border-[#080f18] pb-2">
@@ -622,6 +658,7 @@ export default function TodoPage() {
                     </div>
                    )}
                 </div>
+              </div>
               )}
             </DragDropContext>
           </main>
