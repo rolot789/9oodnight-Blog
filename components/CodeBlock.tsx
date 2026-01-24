@@ -3,9 +3,12 @@
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import okaidia from "react-syntax-highlighter/dist/esm/styles/prism/okaidia"
 
-export default function CodeBlock({ className, children, ...props }: any) {
+export default function CodeBlock({ className, children, node, inline, ...props }: any) {
   const match = /language-(\w+)/.exec(className || "")
-  const isInline = !match
+  
+  // Check if it's inline code (no language specified and inline prop or no newlines)
+  const content = String(children).replace(/\n$/, '')
+  const isInline = inline || (!match && !content.includes('\n'))
 
   if (isInline) {
     return (
@@ -18,7 +21,7 @@ export default function CodeBlock({ className, children, ...props }: any) {
   return (
     <SyntaxHighlighter
       style={okaidia}
-      language={match[1]}
+      language={match ? match[1] : 'text'}
       PreTag="div"
       showLineNumbers
       lineNumberStyle={{
@@ -31,7 +34,7 @@ export default function CodeBlock({ className, children, ...props }: any) {
       customStyle={{ 
         margin: '1.5rem 0', 
         fontSize: "0.875rem", 
-        borderRadius: "0.5rem",
+        borderRadius: "0",
         padding: '1rem',
         backgroundColor: '#000000'
       }}
@@ -44,7 +47,7 @@ export default function CodeBlock({ className, children, ...props }: any) {
       }}
       {...props}
     >
-      {String(children).trim()}
+      {content}
     </SyntaxHighlighter>
   )
 }

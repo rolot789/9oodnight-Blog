@@ -9,6 +9,13 @@ import rehypeKatex from 'rehype-katex'
 function sanitizeForMDX(source: string): string {
   let sanitized = source
 
+  // Normalize line breaks for paragraphs
+  sanitized = sanitized.replace(/\n\n+/g, '\n\n')
+  
+  // Handle checkbox list items from BlockNote
+  sanitized = sanitized.replace(/^\[\s?\]\s/gm, '- [ ] ')
+  sanitized = sanitized.replace(/^\[x\]\s/gm, '- [x] ')
+
   // Remove HTML comments (<!-- -->)
   sanitized = sanitized.replace(/<!--[\s\S]*?-->/g, '')
 

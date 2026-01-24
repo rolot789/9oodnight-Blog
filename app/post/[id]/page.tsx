@@ -1,11 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
-import { compileMDXContent } from "@/lib/mdx"
-import { mdxComponents } from "@/components/mdx-components"
 import Link from "next/link"
 import { Paperclip, Download, Edit } from "lucide-react"
 import TableOfContents from "@/components/TableOfContents"
 import { Badge } from "@/components/ui/badge"
+import BlockNoteViewerClient from "@/components/BlockNoteViewerClient"
 
 interface PostPageProps {
   params: Promise<{
@@ -29,13 +28,11 @@ export default async function PostPage({ params }: PostPageProps) {
     notFound()
   }
 
-  const { content } = await compileMDXContent(post.content, mdxComponents)
-
   return (
-    <div className="min-h-screen bg-[#fafbfc]">
+    <div className="min-h-screen bg-white">
       {/* Post Content */}
       <article className="w-full py-12">
-        <div className="mx-auto max-w-3xl px-6 relative">
+        <div className="mx-auto max-w-4xl px-6 relative">
           
           {/* Header Section (Title, Meta, Image) */}
           <div>
@@ -107,8 +104,8 @@ export default async function PostPage({ params }: PostPageProps) {
           </div>
 
           {/* Main Content */}
-          <div className="space-y-4 text-base text-[#080f18]">
-            {content}
+          <div className="text-base text-[#080f18]">
+            <BlockNoteViewerClient content={post.content} />
           </div>
 
           {/* Attachments */}

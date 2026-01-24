@@ -47,7 +47,7 @@ export const mdxComponents = {
   ),
   img: (props: any) => (
     // eslint-disable-next-line @next/next/no-img-element
-    <img className="my-4 h-auto w-full rounded-lg border border-[#e5e5e5]" alt={props.alt} {...props} />
+    <img className="my-4 h-auto w-full border border-[#e5e5e5]" alt={props.alt} {...props} />
   ),
   hr: (props: any) => <hr className="my-8 border-[#e5e5e5]" {...props} />,
   table: (props: any) => (

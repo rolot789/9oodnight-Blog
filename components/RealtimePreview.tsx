@@ -1,32 +1,23 @@
 "use client"
 
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
-import remarkMath from "remark-math"
-import rehypeKatex from "rehype-katex"
-import rehypeSlug from "rehype-slug"
-import rehypeRaw from "rehype-raw"
-import "katex/dist/katex.min.css"
-import CodeBlock from "./CodeBlock"
-import { mdxComponents } from "./mdx-components"
+import dynamic from "next/dynamic"
+
+const BlockNoteViewer = dynamic(() => import("./BlockNoteViewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="min-h-[100px] flex items-center justify-center">
+      <div className="flex items-center gap-3 text-[#8b8c89]">
+        <div className="w-4 h-4 border-2 border-[#6096ba] border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-sm">Loading...</span>
+      </div>
+    </div>
+  ),
+})
 
 interface RealtimePreviewProps {
   content: string
 }
 
 export default function RealtimePreview({ content }: RealtimePreviewProps) {
-  return (
-    <div className="prose prose-sm max-w-none text-[#080f18]">
-      <ReactMarkdown
-        remarkPlugins={[remarkMath, remarkGfm]}
-        rehypePlugins={[rehypeSlug, rehypeKatex, rehypeRaw]}
-        components={{
-          ...mdxComponents,
-          code: CodeBlock
-        } as any}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
-  )
+  return <BlockNoteViewer content={content} />
 }
