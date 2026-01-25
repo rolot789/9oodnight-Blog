@@ -133,3 +133,18 @@
   font-size: 0.875em;
   color: #e83e8c;
 }
+
+/* Shimmer animation for image loading */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
+  background-size: 200% 100%;
+}

@@ -1,0 +1,17 @@
+# Robots.txt for My Portfolio Blog
+# https://www.robotstxt.org/
+
+User-agent: *
+Allow: /
+
+# 관리자 페이지 크롤링 방지
+Disallow: /edit
+Disallow: /login
+Disallow: /auth
+Disallow: /todo
+
+# API 라우트 크롤링 방지
+Disallow: /api/
+
+# 사이트맵
+Sitemap: https://example.com/sitemap.xml

@@ -1,17 +1,26 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Noto_Sans } from "next/font/google"
 import "./globals.css"
-import "katex/dist/katex.min.css";
+import "katex/dist/katex.min.css"
 import Header from "@/components/Header"
+import { defaultMetadata, generateWebsiteJsonLd, siteConfig } from "@/lib/seo"
 
 const fontSans = Noto_Sans({ subsets: ["latin"], variable: "--font-sans" })
 
 export const metadata: Metadata = {
-  title: "My Portfolio | Developer & Mathematician",
-  description:
-    "Exploring the intersection of Mathematics and Code. A personal blog about algorithms, mathematical theory, and software development.",
-    generator: 'v0.app'
+  ...defaultMetadata,
+  generator: "Next.js",
+}
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#080f18" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 }
 
 export default function RootLayout({
@@ -19,8 +28,27 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const websiteJsonLd = generateWebsiteJsonLd()
+
   return (
-    <html lang="en" className={fontSans.variable}>
+    <html lang="ko" className={fontSans.variable}>
+      <head>
+        {/* JSON-LD 구조화된 데이터 */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
+        {/* Preconnect for performance */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* RSS Feed */}
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title={`${siteConfig.name} RSS Feed`}
+          href="/feed.xml"
+        />
+      </head>
       <body className="antialiased">
         <Header />
         {children}

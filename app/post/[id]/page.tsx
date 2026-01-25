@@ -5,11 +5,34 @@ import { Paperclip, Download, Edit } from "lucide-react"
 import TableOfContents from "@/components/TableOfContents"
 import { Badge } from "@/components/ui/badge"
 import BlockNoteViewerClient from "@/components/BlockNoteViewerClient"
+import { generatePostMetadata, generateArticleJsonLd, generateBreadcrumbJsonLd, siteConfig } from "@/lib/seo"
+import type { Metadata } from "next"
+import type { Post } from "@/lib/types"
 
 interface PostPageProps {
   params: Promise<{
     id: string
   }>
+}
+
+// 동적 메타데이터 생성
+export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+  
+  const { data: post } = await supabase
+    .from("posts")
+    .select("*")
+    .eq("id", id)
+    .single()
+
+  if (!post) {
+    return {
+      title: "Post Not Found",
+    }
+  }
+
+  return generatePostMetadata(post as Post)
 }
 
 export default async function PostPage({ params }: PostPageProps) {
@@ -28,8 +51,26 @@ export default async function PostPage({ params }: PostPageProps) {
     notFound()
   }
 
+  // JSON-LD 구조화된 데이터
+  const articleJsonLd = generateArticleJsonLd(post as Post)
+  const breadcrumbJsonLd = generateBreadcrumbJsonLd([
+    { name: "Home", url: siteConfig.url },
+    { name: post.category, url: `${siteConfig.url}/?category=${encodeURIComponent(post.category)}` },
+    { name: post.title, url: `${siteConfig.url}/post/${post.id}` },
+  ])
+
   return (
     <div className="min-h-screen bg-white">
+      {/* JSON-LD 구조화된 데이터 */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+
       {/* Post Content */}
       <article className="w-full py-12">
         <div className="mx-auto max-w-4xl px-6 relative">
