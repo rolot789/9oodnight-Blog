@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import type { Post } from "./types"
+import type { Post } from "../types"
 
 // 사이트 기본 설정
 export const siteConfig = {

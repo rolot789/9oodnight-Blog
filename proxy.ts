@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr"
 
 const protectedRoutes = ["/edit", "/admin"]
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -25,7 +25,6 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // 보호된 라우트 확인
   const isProtectedRoute = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   )
@@ -35,7 +34,6 @@ export async function middleware(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    // 유저가 없으면 로그인 페이지로 리다이렉트
     if (!user) {
       return NextResponse.redirect(new URL("/login", request.url))
     }

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic"
 
-const BlockNoteViewer = dynamic(() => import("./BlockNoteViewer"), {
+const BlockNoteViewer = dynamic(() => import("@/components/BlockNoteViewer"), {
   ssr: false,
   loading: () => (
     <div className="min-h-[100px] flex items-center justify-center">

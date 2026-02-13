@@ -1,33 +1,25 @@
-import { createClient } from "@/lib/supabase/server"
-import type { Post } from "@/lib/types"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { getHomePageData } from "@/features/post/server/home"
 
 const CATEGORIES = ["All", "Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
 
 interface PageProps {
   searchParams: Promise<{
     category?: string
+    tag?: string
   }>
 }
 
 export default async function Page({ searchParams }: PageProps) {
-  const { category } = await searchParams
+  const { category, tag } = await searchParams
   const selectedCategory = category || "All"
+  const selectedTag = tag || null
 
-  const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  let query = supabase.from("posts").select("*").order("created_at", { ascending: false })
-
-  if (selectedCategory !== "All") {
-    query = query.eq("category", selectedCategory)
-  }
-
-  const { data: posts } = await query
-  const blogPosts = (posts as Post[]) || []
+  const { session, blogPosts, allTags } = await getHomePageData({
+    selectedCategory,
+    selectedTag,
+  })
 
   return (
     <div className="min-h-screen bg-[#fafbfc]">
@@ -53,7 +45,7 @@ export default async function Page({ searchParams }: PageProps) {
       <div className="mx-auto max-w-6xl px-6 py-12">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-[200px_1fr]">
           
-          {/* Left Sidebar: Categories */}
+          {/* Left Sidebar: Categories & Tags */}
           <aside className="space-y-8">
             <div>
               <h3 className="mb-6 text-xs font-bold tracking-widest text-[#080f18]">CATEGORIES</h3>
@@ -63,7 +55,7 @@ export default async function Page({ searchParams }: PageProps) {
                     <Link
                       href={cat === "All" ? "/" : `/?category=${encodeURIComponent(cat)}`}
                       className={`text-xs tracking-wider transition-colors hover:text-[#080f18] ${
-                        selectedCategory === cat ? "font-medium text-[#080f18] border-l-2 border-[#080f18] pl-3 -ml-3.5" : "text-[#8b8c89]"
+                        selectedCategory === cat && !selectedTag ? "font-medium text-[#080f18] border-l-2 border-[#080f18] pl-3 -ml-3.5" : "text-[#8b8c89]"
                       }`}
                     >
                       {cat.toUpperCase()}
@@ -72,6 +64,36 @@ export default async function Page({ searchParams }: PageProps) {
                 ))}
               </ul>
             </div>
+
+            {/* Tags Section */}
+            {allTags.length > 0 && (
+              <div>
+                <h3 className="mb-6 text-xs font-bold tracking-widest text-[#080f18]">TAGS</h3>
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map((t) => (
+                    <Link
+                      key={t}
+                      href={`/?tag=${encodeURIComponent(t)}`}
+                      className={`px-2 py-1 text-[10px] tracking-wider transition-colors border rounded ${
+                        selectedTag === t
+                          ? "bg-[#080f18] text-white border-[#080f18]"
+                          : "bg-white text-[#8b8c89] border-[#e5e5e5] hover:border-[#080f18] hover:text-[#080f18]"
+                      }`}
+                    >
+                      #{t}
+                    </Link>
+                  ))}
+                </div>
+                {selectedTag && (
+                  <Link
+                    href="/"
+                    className="mt-4 inline-block text-[10px] text-[#8b8c89] hover:text-[#080f18] underline"
+                  >
+                    Clear tag filter
+                  </Link>
+                )}
+              </div>
+            )}
           </aside>
 
           {/* Right Column: Content */}
@@ -111,10 +133,12 @@ export default async function Page({ searchParams }: PageProps) {
                         <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
                           {post.category}
                         </span>
-                        {post.tags && post.tags.map((tag) => (
-                          <Badge key={tag} variant="secondary" className="text-[10px] font-normal tracking-wider">
-                            {tag}
-                          </Badge>
+                        {post.tags && post.tags.map((t) => (
+                          <Link key={t} href={`/?tag=${encodeURIComponent(t)}`}>
+                            <Badge variant="secondary" className="text-[10px] font-normal tracking-wider cursor-pointer hover:bg-[#080f18] hover:text-white transition-colors">
+                              {t}
+                            </Badge>
+                          </Link>
                         ))}
                       </div>
                       <Link href={`/post/${post.id}`} className="block group">

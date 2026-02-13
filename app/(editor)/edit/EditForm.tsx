@@ -11,14 +11,14 @@ import { Toggle } from "@/components/ui/toggle"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import dynamic from "next/dynamic"
-import TableOfContents from "@/components/TableOfContents"
+import TableOfContents from "@/features/post/components/TableOfContents"
 import { POST_CATEGORIES as categories, DEFAULT_IMAGES } from "@/lib/constants"
 
-const RealtimePreview = dynamic(() => import("@/components/RealtimePreview"), {
+const RealtimePreview = dynamic(() => import("@/features/editor/components/RealtimePreview"), {
   ssr: false,
 })
 
-const BlockEditor = dynamic(() => import("@/components/BlockEditor"), {
+const BlockEditor = dynamic(() => import("@/features/editor/components/BlockEditor"), {
   ssr: false,
   loading: () => (
     <div className="w-full min-h-[400px] border border-[#e5e5e5] bg-white flex items-center justify-center">

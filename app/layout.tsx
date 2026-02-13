@@ -3,8 +3,9 @@ import type { Metadata, Viewport } from "next"
 import { Noto_Sans } from "next/font/google"
 import "./globals.css"
 import "katex/dist/katex.min.css"
-import Header from "@/components/Header"
+import Header from "@/components/layout/Header"
 import { defaultMetadata, generateWebsiteJsonLd, siteConfig } from "@/lib/seo"
+import { serializeJsonLd } from "@/lib/shared/security"
 
 const fontSans = Noto_Sans({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -36,7 +37,7 @@ export default function RootLayout({
         {/* JSON-LD 구조화된 데이터 */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(websiteJsonLd) }}
         />
         {/* Preconnect for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

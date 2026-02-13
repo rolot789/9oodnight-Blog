@@ -1,13 +1,14 @@
-import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Paperclip, Download, Edit } from "lucide-react"
-import TableOfContents from "@/components/TableOfContents"
+import TableOfContents from "@/features/post/components/TableOfContents"
 import { Badge } from "@/components/ui/badge"
 import BlockNoteViewerClient from "@/components/BlockNoteViewerClient"
+import RelatedPosts from "@/features/post/components/RelatedPosts"
 import { generatePostMetadata, generateArticleJsonLd, generateBreadcrumbJsonLd, siteConfig } from "@/lib/seo"
 import type { Metadata } from "next"
-import type { Post } from "@/lib/types"
+import { getPostById, getPostPageData } from "@/features/post/server/post"
+import { serializeJsonLd } from "@/lib/shared/security"
 
 interface PostPageProps {
   params: Promise<{
@@ -18,13 +19,7 @@ interface PostPageProps {
 // 동적 메타데이터 생성
 export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
   const { id } = await params
-  const supabase = await createClient()
-  
-  const { data: post } = await supabase
-    .from("posts")
-    .select("*")
-    .eq("id", id)
-    .single()
+  const post = await getPostById(id)
 
   if (!post) {
     return {
@@ -32,27 +27,19 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
     }
   }
 
-  return generatePostMetadata(post as Post)
+  return generatePostMetadata(post)
 }
 
 export default async function PostPage({ params }: PostPageProps) {
   const { id } = await params
-  const supabase = await createClient()
-  
-  const { data: { session } } = await supabase.auth.getSession()
+  const { session, post } = await getPostPageData(id)
 
-  const { data: post, error } = await supabase
-    .from("posts")
-    .select("*")
-    .eq("id", id)
-    .single()
-
-  if (error || !post) {
+  if (!post) {
     notFound()
   }
 
   // JSON-LD 구조화된 데이터
-  const articleJsonLd = generateArticleJsonLd(post as Post)
+  const articleJsonLd = generateArticleJsonLd(post)
   const breadcrumbJsonLd = generateBreadcrumbJsonLd([
     { name: "Home", url: siteConfig.url },
     { name: post.category, url: `${siteConfig.url}/?category=${encodeURIComponent(post.category)}` },
@@ -64,11 +51,11 @@ export default async function PostPage({ params }: PostPageProps) {
       {/* JSON-LD 구조화된 데이터 */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(articleJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd) }}
       />
 
       {/* Post Content */}
@@ -177,6 +164,13 @@ export default async function PostPage({ params }: PostPageProps) {
           <aside className="hidden xl:block fixed left-8 top-24 w-[240px]">
              <TableOfContents />
           </aside>
+
+          {/* Related Posts */}
+          <RelatedPosts
+            currentPostId={post.id}
+            tags={post.tags}
+            category={post.category}
+          />
 
           {/* Footer Section (Author) */}
           <div>

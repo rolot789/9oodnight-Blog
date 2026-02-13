@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react"
 import { getMDXSource } from "@/app/actions"
 import MDXPreviewRenderer from "@/components/mdx-preview-renderer"
-import TableOfContents from "@/components/TableOfContents"
+import TableOfContents from "@/features/post/components/TableOfContents"
 import { Download, Paperclip } from "lucide-react"
-import RealtimePreview from "@/components/RealtimePreview"
+import RealtimePreview from "@/features/editor/components/RealtimePreview"
 import { Badge } from "@/components/ui/badge"
 
 interface PreviewData {

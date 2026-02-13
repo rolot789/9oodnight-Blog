@@ -20,9 +20,13 @@ export async function POST(request: NextRequest) {
     status: 302,
   });
 
-  // 쿠키 제거
-  response.cookies.delete("sb-yzazdyirtqrgoekragie-auth-token");
-  response.cookies.delete("sb-yzazdyirtqrgoekragie-auth-token-code-verifier");
+  // Supabase auth 관련 쿠키를 프로젝트 ref 하드코딩 없이 정리
+  request.cookies
+    .getAll()
+    .filter((cookie) => cookie.name.startsWith("sb-"))
+    .forEach((cookie) => {
+      response.cookies.delete(cookie.name);
+    });
 
   return response;
 }

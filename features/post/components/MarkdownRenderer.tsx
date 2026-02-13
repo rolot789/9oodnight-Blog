@@ -5,10 +5,10 @@ import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
 import rehypeKatex from "rehype-katex"
 import rehypeSlug from "rehype-slug"
-import rehypeRaw from "rehype-raw"
 import "katex/dist/katex.min.css"
-import CodeBlock from "./CodeBlock"
-import { mdxComponents } from "./mdx-components"
+import CodeBlock from "@/components/CodeBlock"
+import { mdxComponents } from "@/components/mdx-components"
+import { sanitizeHtmlContent } from "@/lib/shared/security"
 
 interface MarkdownRendererProps {
   content: string
@@ -68,12 +68,13 @@ const htmlStyles = `
 export default function MarkdownRenderer({ content, className = "" }: MarkdownRendererProps) {
   // If content is HTML (from BlockNote), render it directly
   if (isHTML(content)) {
+    const sanitizedContent = sanitizeHtmlContent(content)
     return (
       <>
         <style>{htmlStyles}</style>
         <div 
           className={`blocknote-html-content prose prose-sm max-w-none text-[#080f18] ${className}`}
-          dangerouslySetInnerHTML={{ __html: content }}
+          dangerouslySetInnerHTML={{ __html: sanitizedContent }}
         />
       </>
     )
@@ -86,7 +87,7 @@ export default function MarkdownRenderer({ content, className = "" }: MarkdownRe
     <div className={`prose prose-sm max-w-none text-[#080f18] ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkMath, remarkGfm]}
-        rehypePlugins={[rehypeSlug, rehypeKatex, rehypeRaw]}
+        rehypePlugins={[rehypeSlug, rehypeKatex]}
         components={{
           ...mdxComponents,
           code: CodeBlock,
