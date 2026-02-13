@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = (await request.json()) as { text?: string; category?: string }
+    const body = (await request.json()) as { text?: string; category?: string; postId?: string | null }
     if (!body?.text || !body?.text.trim()) {
       return apiErrorResponse(
         context,
@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
       text: body.text,
       category: body.category ?? "Draft",
       userId: user.id,
+      postId: body.postId ?? null,
     })
 
     const response = jsonWithRequestId(apiSuccess(todo), context.requestId, 201)

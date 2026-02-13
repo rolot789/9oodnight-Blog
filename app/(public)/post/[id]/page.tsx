@@ -1,15 +1,17 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { headers } from "next/headers"
-import { Paperclip, Download, Edit } from "lucide-react"
+import { Paperclip, Download, Edit, CheckCircle2, Circle } from "lucide-react"
 import TableOfContents from "@/features/post/components/TableOfContents"
 import { Badge } from "@/components/ui/badge"
 import BlockNoteViewerClient from "@/components/BlockNoteViewerClient"
 import RelatedPosts from "@/features/post/components/RelatedPosts"
+import SeriesNavigator from "@/features/post/components/SeriesNavigator"
 import { generatePostMetadata, generateArticleJsonLd, generateBreadcrumbJsonLd, siteConfig } from "@/lib/seo"
 import type { Metadata } from "next"
 import { getPostById, getPostPageData } from "@/features/post/server/post"
 import { serializeJsonLd } from "@/lib/shared/security"
+import { STATUS_LABELS } from "@/lib/constants"
 
 interface PostPageProps {
   params: Promise<{
@@ -33,7 +35,7 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
 
 export default async function PostPage({ params }: PostPageProps) {
   const { id } = await params
-  const { session, post } = await getPostPageData(id)
+  const { session, post, seriesContext, linkedTodos } = await getPostPageData(id)
   const nonce = (await headers()).get("x-nonce") ?? undefined
 
   if (!post) {
@@ -141,6 +143,48 @@ export default async function PostPage({ params }: PostPageProps) {
           <div className="text-base text-[#080f18]">
             <BlockNoteViewerClient content={post.content} />
           </div>
+
+          {/* Series Navigator */}
+          {seriesContext && <SeriesNavigator series={seriesContext} />}
+
+          {/* Linked Todos */}
+          {linkedTodos.length > 0 && (
+            <section className="mt-10">
+              <h3 className="mb-4 text-sm font-bold tracking-widest text-[#080f18]">RELATED TODO</h3>
+              <div className="space-y-3">
+                {linkedTodos.map((todo) => (
+                  <div
+                    key={todo.id}
+                    className="flex items-center justify-between rounded border border-[#e5e5e5] bg-white px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      {todo.completed ? (
+                        <CheckCircle2 className="h-4 w-4 text-[#6096ba]" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-[#8b8c89]" />
+                      )}
+                      <span
+                        className={`text-sm ${todo.completed ? "text-[#8b8c89] line-through" : "text-[#080f18]"}`}
+                      >
+                        {todo.text}
+                      </span>
+                    </div>
+                    <span className="text-[10px] tracking-wider text-[#8b8c89]">
+                      {STATUS_LABELS[todo.status]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 text-right">
+                <Link
+                  href="/todo"
+                  className="text-xs tracking-wider text-[#6096ba] transition-colors hover:text-[#4a7a9e]"
+                >
+                  VIEW IN TODO BOARD
+                </Link>
+              </div>
+            </section>
+          )}
 
           {/* Attachments */}
           {post.attachments && post.attachments.length > 0 && (

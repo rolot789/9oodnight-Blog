@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useMemo, Suspense } from "react"
+import { useEffect, useState, useMemo, Suspense, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog"
@@ -33,6 +33,41 @@ interface Attachment {
   filePath: string
 }
 
+interface LocalDraftPayload {
+  title: string
+  category: string
+  excerpt: string
+  content: string
+  tags: string[]
+  imageUrl: string
+  featuredImagePath: string | null
+  attachments: Attachment[]
+  seriesTitle: string
+  seriesSlug: string
+  seriesPosition: string
+  updatedAt: string
+}
+
+function normalizeSeriesSlug(input: string): string {
+  return input
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80)
+}
+
+function isMissingRelationError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false
+  }
+  const code = "code" in error ? String((error as { code?: string }).code ?? "") : ""
+  return code === "42P01" || code === "42703"
+}
+
 function EditFormContent() {
   const searchParams = useSearchParams()
   const postId = searchParams.get("id")
@@ -44,6 +79,9 @@ function EditFormContent() {
   const [content, setContent] = useState("")
   const [tags, setTags] = useState<string[]>([])
   const [currentTag, setCurrentTag] = useState("")
+  const [seriesTitle, setSeriesTitle] = useState("")
+  const [seriesSlug, setSeriesSlug] = useState("")
+  const [seriesPosition, setSeriesPosition] = useState("")
   const [imageUrl, setImageUrl] = useState(DEFAULT_IMAGES.THUMBNAIL)
   const [featuredImagePath, setFeaturedImagePath] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<Attachment[]>([])
@@ -52,12 +90,48 @@ function EditFormContent() {
   const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [isAutoSaving, setIsAutoSaving] = useState(false)
+  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null)
+  const [recoverableDraft, setRecoverableDraft] = useState<LocalDraftPayload | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [isPostLoading, setIsPostLoading] = useState(false)
 
   const supabase = useMemo(() => createClient(), [])
   const isEditMode = postId !== null
+  const draftStorageKey = useMemo(
+    () => (isEditMode ? `editor:draft:${postId}` : "editor:draft:new"),
+    [isEditMode, postId]
+  )
+  const hasCheckedDraftRef = useRef(false)
+
+  const getDraftPayload = (): Omit<LocalDraftPayload, "updatedAt"> => ({
+    title,
+    category,
+    excerpt,
+    content,
+    tags,
+    imageUrl,
+    featuredImagePath,
+    attachments,
+    seriesTitle,
+    seriesSlug,
+    seriesPosition,
+  })
+
+  const applyDraftPayload = (draft: LocalDraftPayload) => {
+    setTitle(draft.title)
+    setCategory(draft.category)
+    setExcerpt(draft.excerpt)
+    setContent(draft.content)
+    setTags(draft.tags || [])
+    setImageUrl(draft.imageUrl || DEFAULT_IMAGES.THUMBNAIL)
+    setFeaturedImagePath(draft.featuredImagePath || null)
+    setAttachments(draft.attachments || [])
+    setSeriesTitle(draft.seriesTitle || "")
+    setSeriesSlug(draft.seriesSlug || "")
+    setSeriesPosition(draft.seriesPosition || "")
+  }
 
   useEffect(() => {
     const checkUser = async () => {
@@ -95,6 +169,22 @@ function EditFormContent() {
           setImageUrl(data.image_url || DEFAULT_IMAGES.THUMBNAIL)
           setFeaturedImagePath(data.featured_image_path || null)
           setAttachments(data.attachments || [])
+
+          const { data: seriesData, error: seriesError } = await supabase
+            .from("post_series_items")
+            .select("series_title, series_slug, position")
+            .eq("post_id", postId)
+            .maybeSingle()
+
+          if (!seriesError && seriesData) {
+            setSeriesTitle(seriesData.series_title || "")
+            setSeriesSlug(seriesData.series_slug || "")
+            setSeriesPosition(
+              typeof seriesData.position === "number" ? String(seriesData.position) : ""
+            )
+          } else if (seriesError && !isMissingRelationError(seriesError)) {
+            console.error("Failed to load series metadata:", seriesError)
+          }
         }
         setIsPostLoading(false)
       }
@@ -104,10 +194,124 @@ function EditFormContent() {
     }
   }, [postId, isEditMode, supabase, router])
 
+  const isEditorReady = !isEditMode || !isPostLoading
+
+  useEffect(() => {
+    hasCheckedDraftRef.current = false
+    setRecoverableDraft(null)
+    setLastAutoSavedAt(null)
+  }, [draftStorageKey])
+
+  useEffect(() => {
+    if (!isEditorReady || hasCheckedDraftRef.current) {
+      return
+    }
+
+    hasCheckedDraftRef.current = true
+
+    try {
+      const raw = localStorage.getItem(draftStorageKey)
+      if (!raw) {
+        return
+      }
+
+      const parsed = JSON.parse(raw) as LocalDraftPayload
+      if (!parsed || typeof parsed !== "object") {
+        return
+      }
+
+      const currentSnapshot = JSON.stringify(getDraftPayload())
+      const draftSnapshot = JSON.stringify({
+        title: parsed.title ?? "",
+        category: parsed.category ?? "",
+        excerpt: parsed.excerpt ?? "",
+        content: parsed.content ?? "",
+        tags: parsed.tags ?? [],
+        imageUrl: parsed.imageUrl ?? DEFAULT_IMAGES.THUMBNAIL,
+        featuredImagePath: parsed.featuredImagePath ?? null,
+        attachments: parsed.attachments ?? [],
+        seriesTitle: parsed.seriesTitle ?? "",
+        seriesSlug: parsed.seriesSlug ?? "",
+        seriesPosition: parsed.seriesPosition ?? "",
+      })
+
+      if (draftSnapshot !== currentSnapshot) {
+        setRecoverableDraft(parsed)
+      }
+    } catch (error) {
+      console.error("Failed to read local draft:", error)
+    }
+  }, [draftStorageKey, isEditorReady, title, category, excerpt, content, tags, imageUrl, featuredImagePath, attachments, seriesTitle, seriesSlug, seriesPosition])
+
+  useEffect(() => {
+    if (!isEditorReady) {
+      return
+    }
+
+    if (recoverableDraft) {
+      return
+    }
+
+    const payload = getDraftPayload()
+    const hasMeaningfulContent = Boolean(
+      payload.title.trim() ||
+      payload.excerpt.trim() ||
+      payload.content.trim() ||
+      payload.tags.length > 0 ||
+      payload.attachments.length > 0 ||
+      payload.seriesTitle.trim()
+    )
+
+    if (!hasMeaningfulContent) {
+      localStorage.removeItem(draftStorageKey)
+      return
+    }
+
+    const timer = setTimeout(() => {
+      try {
+        setIsAutoSaving(true)
+        localStorage.setItem(
+          draftStorageKey,
+          JSON.stringify({
+            ...payload,
+            updatedAt: new Date().toISOString(),
+          } satisfies LocalDraftPayload)
+        )
+        setLastAutoSavedAt(new Date().toISOString())
+      } catch (error) {
+        console.error("Failed to autosave draft:", error)
+      } finally {
+        setIsAutoSaving(false)
+      }
+    }, 1200)
+
+    return () => clearTimeout(timer)
+  }, [draftStorageKey, isEditorReady, recoverableDraft, title, category, excerpt, content, tags, imageUrl, featuredImagePath, attachments, seriesTitle, seriesSlug, seriesPosition])
+
   const handlePreview = () => {
     const previewData = { title, category, excerpt, content, imageUrl, attachments, tags, postId }
     localStorage.setItem("previewData", JSON.stringify(previewData))
     window.location.href = "/edit/preview"
+  }
+
+  const handleRestoreDraft = () => {
+    if (!recoverableDraft) {
+      return
+    }
+    applyDraftPayload(recoverableDraft)
+    setRecoverableDraft(null)
+    toast.success("Saved draft restored.")
+  }
+
+  const handleDismissRecoveredDraft = () => {
+    setRecoverableDraft(null)
+  }
+
+  const handleDeleteRecoveredDraft = () => {
+    localStorage.removeItem(draftStorageKey)
+    setRecoverableDraft(null)
+    setLastAutoSavedAt(null)
+    toast.success("Local draft deleted.")
   }
 
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -149,12 +353,22 @@ function EditFormContent() {
       }
     }
 
+    const { error: seriesDeleteError } = await supabase
+      .from("post_series_items")
+      .delete()
+      .eq("post_id", postId)
+
+    if (seriesDeleteError && !isMissingRelationError(seriesDeleteError)) {
+      console.error("Failed to delete series membership:", seriesDeleteError)
+    }
+
     const { error } = await supabase.from("posts").delete().eq("id", postId)
 
     if (error) {
       toast.error(`Error: ${error.message}`)
       setIsSubmitting(false)
     } else {
+      localStorage.removeItem(draftStorageKey)
       router.push("/")
       router.refresh()
     }
@@ -291,21 +505,76 @@ function EditFormContent() {
     }
 
     let error
+    let savedPostId = postId
 
     if (isEditMode) {
-      const { error: updateError } = await supabase.from("posts").update(postData).eq("id", postId)
+      const { data: updatedRow, error: updateError } = await supabase
+        .from("posts")
+        .update(postData)
+        .eq("id", postId)
+        .select("id")
+        .single()
       error = updateError
+      savedPostId = updatedRow?.id ?? postId
     } else {
-      const { error: insertError } = await supabase.from("posts").insert({ ...postData, author_id: userId })
+      const { data: insertedRow, error: insertError } = await supabase
+        .from("posts")
+        .insert({ ...postData, author_id: userId })
+        .select("id")
+        .single()
       error = insertError
+      savedPostId = insertedRow?.id ?? null
     }
 
     if (error) {
       toast.error(`Error: ${error.message}`)
     } else {
+      if (savedPostId) {
+        try {
+          const safeSeriesTitle = seriesTitle.trim().slice(0, 120)
+          if (safeSeriesTitle) {
+            const safeSeriesSlug = normalizeSeriesSlug(seriesSlug || safeSeriesTitle)
+            const parsedPosition = Number.parseInt(seriesPosition, 10)
+            const safePosition = Number.isNaN(parsedPosition) ? null : Math.max(1, parsedPosition)
+
+            const { error: upsertSeriesError } = await supabase
+              .from("post_series_items")
+              .upsert(
+                {
+                  post_id: savedPostId,
+                  series_title: safeSeriesTitle,
+                  series_slug: safeSeriesSlug || normalizeSeriesSlug(safeSeriesTitle),
+                  position: safePosition,
+                },
+                { onConflict: "post_id" }
+              )
+            if (upsertSeriesError && !isMissingRelationError(upsertSeriesError)) {
+              throw upsertSeriesError
+            }
+          } else {
+            const { error: deleteSeriesError } = await supabase
+              .from("post_series_items")
+              .delete()
+              .eq("post_id", savedPostId)
+            if (deleteSeriesError && !isMissingRelationError(deleteSeriesError)) {
+              throw deleteSeriesError
+            }
+          }
+        } catch (seriesError) {
+          if (!isMissingRelationError(seriesError)) {
+            console.error("Series metadata save failed:", seriesError)
+            toast.error("Post is saved, but series metadata update failed.")
+          }
+        }
+      }
+
+      localStorage.removeItem(draftStorageKey)
+      setLastAutoSavedAt(null)
+      setRecoverableDraft(null)
+
       toast.success(`Post ${isEditMode ? "updated" : "published"} successfully!`)
-      if (isEditMode && postId) {
-        router.push(`/post/${postId}`)
+      if (isEditMode && savedPostId) {
+        router.push(`/post/${savedPostId}`)
         router.refresh()
       } else {
         setTitle("")
@@ -313,7 +582,10 @@ function EditFormContent() {
         setExcerpt("")
         setContent("")
         setTags([])
-        setImageUrl("")
+        setSeriesTitle("")
+        setSeriesSlug("")
+        setSeriesPosition("")
+        setImageUrl(DEFAULT_IMAGES.THUMBNAIL)
         setFeaturedImagePath(null)
         setAttachments([])
       }
@@ -337,6 +609,16 @@ function EditFormContent() {
         </a>
 
         <div className="flex items-center gap-3">
+          <div className="hidden md:block text-[10px] tracking-wider text-[#8b8c89]">
+            {isAutoSaving
+              ? "AUTOSAVING..."
+              : lastAutoSavedAt
+                ? `AUTOSAVED ${new Date(lastAutoSavedAt).toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}`
+                : "AUTOSAVE READY"}
+          </div>
           {isEditMode && (
             <button 
               type="button" 
@@ -365,6 +647,42 @@ function EditFormContent() {
           </button>
         </div>
       </div>
+
+      {recoverableDraft && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-[#e5e5e5] bg-white px-4 py-3">
+          <div>
+            <p className="text-sm text-[#080f18]">A local draft is available.</p>
+            <p className="text-[11px] tracking-wider text-[#8b8c89]">
+              {recoverableDraft.updatedAt
+                ? `Saved at ${new Date(recoverableDraft.updatedAt).toLocaleString("en-US")}`
+                : "Saved recently on this browser"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRestoreDraft}
+              className="border border-[#080f18] bg-[#080f18] px-3 py-1.5 text-[11px] tracking-wider text-white transition-colors hover:bg-[#1a2632]"
+            >
+              Restore
+            </button>
+            <button
+              type="button"
+              onClick={handleDismissRecoveredDraft}
+              className="border border-[#e5e5e5] px-3 py-1.5 text-[11px] tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]"
+            >
+              Keep Current
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteRecoveredDraft}
+              className="border border-[#e5e5e5] px-3 py-1.5 text-[11px] tracking-wider text-red-600 transition-colors hover:border-red-600"
+            >
+              Delete Draft
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className={`grid gap-8 ${showPreview ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
         
@@ -427,6 +745,55 @@ function EditFormContent() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Series Property */}
+            <div className="flex items-start gap-3 py-1.5 px-2 rounded-none hover:bg-[#f5f5f5] transition-colors">
+              <div className="flex items-center gap-2 w-28 text-[#8b8c89] pt-1">
+                <Calendar className="h-4 w-4" />
+                <span className="text-sm">Series</span>
+              </div>
+              <div className="flex-1 space-y-2">
+                <input
+                  type="text"
+                  value={seriesTitle}
+                  onChange={(e) => {
+                    const nextTitle = e.target.value
+                    setSeriesTitle(nextTitle)
+                    if (!seriesSlug.trim()) {
+                      setSeriesSlug(normalizeSeriesSlug(nextTitle))
+                    }
+                  }}
+                  placeholder="Series title (optional)"
+                  className="w-full bg-transparent border-none outline-none text-sm text-[#080f18] placeholder-[#c0c0c0]"
+                />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_120px]">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={seriesSlug}
+                      onChange={(e) => setSeriesSlug(normalizeSeriesSlug(e.target.value))}
+                      placeholder="series-slug"
+                      className="w-full bg-transparent border border-[#e5e5e5] px-2 py-1 text-xs text-[#080f18] placeholder-[#c0c0c0] outline-none focus:border-[#6096ba]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSeriesSlug(normalizeSeriesSlug(seriesTitle))}
+                      className="border border-[#e5e5e5] px-2 py-1 text-[10px] tracking-wider text-[#8b8c89] transition-colors hover:border-[#080f18] hover:text-[#080f18]"
+                    >
+                      AUTO
+                    </button>
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    value={seriesPosition}
+                    onChange={(e) => setSeriesPosition(e.target.value)}
+                    placeholder="Order"
+                    className="w-full bg-transparent border border-[#e5e5e5] px-2 py-1 text-xs text-[#080f18] placeholder-[#c0c0c0] outline-none focus:border-[#6096ba]"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Tags Property */}

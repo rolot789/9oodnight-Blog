@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
+import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -12,16 +13,19 @@ import {
 } from "@/components/ui/select"
 import { Trash2, Plus, CheckCircle2, Circle, GripVertical, LayoutList, Kanban, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/shared/utils"
-import { Todo, TodoStatus } from "@/lib/types"
+import { PostOption, Todo, TodoStatus } from "@/lib/types"
 import { TODO_CATEGORIES as CATEGORIES, STATUSES, STATUS_LABELS, CATEGORY_COLORS } from "@/lib/constants"
 import type { ApiResponse } from "@/lib/shared/api-response"
 
 const PAGE_SIZE = 20
+const NO_POST_LINK = "__none__"
 
 export default function TodoPage() {
   const [todos, setTodos] = useState<Todo[]>([])
   const [inputValue, setInputValue] = useState("")
   const [category, setCategory] = useState("Draft")
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null)
+  const [postOptions, setPostOptions] = useState<PostOption[]>([])
   const [filterCategory, setFilterCategory] = useState<string>("All")
   const [isLoaded, setIsLoaded] = useState(false)
   const [view, setView] = useState<"list" | "kanban">("list")
@@ -54,6 +58,15 @@ export default function TodoPage() {
     }
     return payload.data
   }, [])
+
+  const loadPostOptions = useCallback(async () => {
+    try {
+      const options = await fetchTodoApi<PostOption[]>("/api/posts?limit=60")
+      setPostOptions(options)
+    } catch (error) {
+      console.error("Failed to load post options", error)
+    }
+  }, [fetchTodoApi])
 
   const fetchTodos = useCallback(async (nextPage: number, isLoadMore = false) => {
     if (!isLoadMore) {
@@ -109,6 +122,10 @@ export default function TodoPage() {
     checkUser()
   }, [fetchTodoApi])
 
+  useEffect(() => {
+    loadPostOptions()
+  }, [loadPostOptions])
+
   // Fetch on filter change
   useEffect(() => {
     fetchTodos(0, false)
@@ -127,6 +144,10 @@ export default function TodoPage() {
       return
     }
 
+    const linkedPostTitle = selectedPostId
+      ? postOptions.find((post) => post.id === selectedPostId)?.title ?? null
+      : null
+
     const tempId = crypto.randomUUID()
     const newTodo: Todo = {
       id: tempId,
@@ -135,12 +156,15 @@ export default function TodoPage() {
       status: "Draft",
       completed: false,
       created_at: new Date().toISOString(),
-      user_id: user.id
+      user_id: user.id,
+      linked_post_id: selectedPostId,
+      linked_post_title: linkedPostTitle,
     }
 
     // Optimistic update: prepend to top
     setTodos([newTodo, ...todos])
     setInputValue("")
+    setSelectedPostId(null)
 
     try {
       const data = await fetchTodoApi<Todo>("/api/todos", {
@@ -149,6 +173,7 @@ export default function TodoPage() {
         body: JSON.stringify({
           text: newTodo.text,
           category: newTodo.category,
+          postId: selectedPostId,
         }),
       })
       setTodos((prev) => prev.map((t) => (t.id === tempId ? data : t)))
@@ -290,6 +315,38 @@ export default function TodoPage() {
     }
   }
 
+  const changeLinkedPost = async (id: string, postId: string | null) => {
+    const prevTodos = [...todos]
+    const nextTitle = postId
+      ? postOptions.find((post) => post.id === postId)?.title ?? null
+      : null
+
+    setTodos(
+      todos.map((todo) =>
+        todo.id === id
+          ? {
+              ...todo,
+              linked_post_id: postId,
+              linked_post_title: nextTitle,
+            }
+          : todo
+      )
+    )
+
+    try {
+      const updatedTodo = await fetchTodoApi<Todo>(`/api/todos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId }),
+      })
+
+      setTodos((current) => current.map((todo) => (todo.id === id ? updatedTodo : todo)))
+    } catch (error) {
+      console.error("Failed to update linked post", error)
+      setTodos(prevTodos)
+    }
+  }
+
   // NOTE: filteredTodos is now just 'todos' because filtering happens on server
   const filteredTodos = todos;
 
@@ -413,6 +470,24 @@ export default function TodoPage() {
                   onKeyDown={handleKeyDown}
                   className="flex-1 h-11 rounded-none border-[#e5e5e5] focus-visible:ring-0 focus-visible:border-[#6096ba] placeholder:text-[#c0c0c0] placeholder:font-light"
                 />
+                <div className="w-full sm:w-[240px] shrink-0">
+                  <Select
+                    value={selectedPostId ?? NO_POST_LINK}
+                    onValueChange={(value) => setSelectedPostId(value === NO_POST_LINK ? null : value)}
+                  >
+                    <SelectTrigger className="h-11 rounded-none border-[#e5e5e5] focus:border-[#6096ba]">
+                      <SelectValue placeholder="Related post (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_POST_LINK}>No linked post</SelectItem>
+                      {postOptions.map((post) => (
+                        <SelectItem key={post.id} value={post.id}>
+                          {post.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <button
                   onClick={addTodo}
                   className="flex items-center justify-center gap-2 border border-[#080f18] bg-transparent px-8 py-2 text-xs tracking-widest text-[#080f18] transition-all hover:text-[#6096ba] hover:border-[#6096ba] rounded-none h-11 uppercase"
@@ -528,6 +603,42 @@ export default function TodoPage() {
                                             year: "numeric",
                                           })}
                                         </span>
+
+                                        <Select
+                                          value={todo.linked_post_id ?? NO_POST_LINK}
+                                          onValueChange={(value) =>
+                                            changeLinkedPost(todo.id, value === NO_POST_LINK ? null : value)
+                                          }
+                                        >
+                                          <SelectTrigger className="h-auto w-auto p-0 border-none bg-transparent focus:ring-0">
+                                            <span className="text-[10px] tracking-wider text-[#8b8c89] uppercase hover:text-[#080f18] transition-colors">
+                                              {todo.linked_post_id ? "Linked Post" : "Link Post"}
+                                            </span>
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value={NO_POST_LINK}>No linked post</SelectItem>
+                                            {todo.linked_post_id &&
+                                              !postOptions.some((post) => post.id === todo.linked_post_id) && (
+                                                <SelectItem value={todo.linked_post_id}>
+                                                  {todo.linked_post_title || "Linked post"}
+                                                </SelectItem>
+                                              )}
+                                            {postOptions.map((post) => (
+                                              <SelectItem key={post.id} value={post.id}>
+                                                {post.title}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+
+                                        {todo.linked_post_id && (
+                                          <Link
+                                            href={`/post/${todo.linked_post_id}`}
+                                            className="text-[10px] tracking-wider text-[#6096ba] hover:text-[#4a7a9e] underline"
+                                          >
+                                            {todo.linked_post_title || "View post"}
+                                          </Link>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -631,6 +742,14 @@ export default function TodoPage() {
                                         >
                                           {todo.category}
                                         </span>
+                                        {todo.linked_post_id && (
+                                          <Link
+                                            href={`/post/${todo.linked_post_id}`}
+                                            className="text-[9px] tracking-wider text-[#6096ba] hover:text-[#4a7a9e] underline mr-2"
+                                          >
+                                            POST
+                                          </Link>
+                                        )}
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();

@@ -49,6 +49,7 @@ app/
 │       └── signout/route.ts  # 레거시 signout redirect
 ├── api/                    # 서버 API 라우트
 │   ├── search/route.ts
+│   ├── posts/route.ts      # 포스트 옵션(선택 UI용) API
 │   ├── todos/route.ts
 │   ├── todos/[id]/route.ts
 │   └── auth/
@@ -67,12 +68,12 @@ app/
 ```text
 features/
 ├── post/
-│   ├── components/         # 포스트 전용 UI (목차/관련글/마크다운 렌더러)
-│   └── server/             # 포스트 도메인 서버 로직 (home/post/feed/sitemap)
+│   ├── components/         # 포스트 전용 UI (목차/관련글/시리즈 네비게이터/마크다운 렌더러)
+│   └── server/             # 포스트 도메인 서버 로직 (home/post/series/feed/sitemap/options)
 ├── search/
 │   └── server/search.ts    # 검색/자동완성/인기태그 서버 로직
 ├── todo/
-│   └── server/todos.ts     # TODO CRUD 서버 로직
+│   └── server/todos.ts     # TODO CRUD + 포스트 링크 서버 로직
 └── editor/
     └── components/         # 에디터 전용 UI (블록 에디터/실시간 프리뷰)
 ```

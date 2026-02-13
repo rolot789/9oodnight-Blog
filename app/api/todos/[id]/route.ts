@@ -25,12 +25,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       category?: string
       status?: TodoStatus
       completed?: boolean
+      postId?: string | null
     }
 
     const todo = await updateTodo(id, user.id, {
       category: body.category,
       status: body.status,
       completed: body.completed,
+      linked_post_id: body.postId,
     })
 
     const response = jsonWithRequestId(apiSuccess(todo), context.requestId)
