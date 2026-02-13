@@ -52,11 +52,13 @@ export default async function PostPage({ params }: PostPageProps) {
     <div className="min-h-screen bg-white">
       {/* JSON-LD 구조화된 데이터 */}
       <script
+        suppressHydrationWarning
         nonce={nonce}
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(articleJsonLd) }}
       />
       <script
+        suppressHydrationWarning
         nonce={nonce}
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd) }}

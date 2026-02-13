@@ -40,7 +40,7 @@ export const defaultMetadata: Metadata = {
     description: siteConfig.description,
     images: [
       {
-        url: "/og-default.png",
+        url: "/opengraph-image",
         width: 1200,
         height: 630,
         alt: siteConfig.name,
@@ -52,7 +52,7 @@ export const defaultMetadata: Metadata = {
     title: siteConfig.name,
     description: siteConfig.description,
     creator: siteConfig.twitter,
-    images: ["/og-default.png"],
+    images: ["/opengraph-image"],
   },
   robots: {
     index: true,
@@ -77,9 +77,7 @@ export const defaultMetadata: Metadata = {
 // 포스트별 동적 메타데이터 생성
 export function generatePostMetadata(post: Post): Metadata {
   const postUrl = `${siteConfig.url}/post/${post.id}`
-  const ogImage = post.image_url && post.image_url !== "/Thumbnail.jpg" 
-    ? post.image_url 
-    : "/og-default.png"
+  const ogImage = `${siteConfig.url}/post/${post.id}/opengraph-image`
 
   // 본문에서 요약 추출 (첫 160자)
   const description = post.excerpt || extractDescription(post.content, 160)
@@ -135,7 +133,7 @@ export function generateArticleJsonLd(post: Post) {
     description: post.excerpt || extractDescription(post.content, 160),
     image: post.image_url && post.image_url !== "/Thumbnail.jpg" 
       ? post.image_url 
-      : `${siteConfig.url}/og-default.png`,
+      : `${siteConfig.url}/opengraph-image`,
     datePublished: post.created_at,
     dateModified: post.updated_at,
     author: {
