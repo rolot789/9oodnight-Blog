@@ -1,15 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { apiError } from "@/lib/shared/api-response"
 import { signOutWithJson } from "@/lib/server/auth"
+import { apiErrorResponse, createApiContext, logApiSuccess } from "@/lib/server/observability"
 
 export async function POST(request: NextRequest) {
+  const context = createApiContext(request)
   try {
-    return await signOutWithJson(request)
+    const response = await signOutWithJson(request)
+    response.headers.set("x-request-id", context.requestId)
+    logApiSuccess(context, 200)
+    return response
   } catch (error) {
-    console.error("Signout API error:", error)
-    return NextResponse.json(
-      apiError("SIGNOUT_FAILED", "로그아웃 처리에 실패했습니다."),
-      { status: 500 }
+    return apiErrorResponse(
+      context,
+      "SIGNOUT_FAILED",
+      "로그아웃 처리에 실패했습니다.",
+      500,
+      error
     )
   }
 }

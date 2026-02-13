@@ -5,8 +5,10 @@ import { buildContentSecurityPolicy } from "@/lib/shared/csp"
 const protectedRoutes = ["/edit", "/admin"]
 
 export async function proxy(request: NextRequest) {
+  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID()
   const nonce = crypto.randomUUID().replace(/-/g, "")
   const requestHeaders = new Headers(request.headers)
+  requestHeaders.set("x-request-id", requestId)
   requestHeaders.set("x-nonce", nonce)
 
   let supabaseResponse = NextResponse.next({
@@ -47,6 +49,7 @@ export async function proxy(request: NextRequest) {
   }
 
   supabaseResponse.headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce))
+  supabaseResponse.headers.set("x-request-id", requestId)
   supabaseResponse.headers.set("X-Content-Type-Options", "nosniff")
   supabaseResponse.headers.set("X-Frame-Options", "DENY")
   supabaseResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
