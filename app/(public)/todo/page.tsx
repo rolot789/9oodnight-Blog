@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/select"
 import { Trash2, Plus, CheckCircle2, Circle, GripVertical, LayoutList, Kanban, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/shared/utils"
-import { createClient } from "@/lib/supabase/client"
 import { Todo, TodoStatus } from "@/lib/types"
 import { TODO_CATEGORIES as CATEGORIES, STATUSES, STATUS_LABELS, CATEGORY_COLORS } from "@/lib/constants"
+import type { ApiResponse } from "@/lib/shared/api-response"
 
 const PAGE_SIZE = 20
 
@@ -25,7 +25,7 @@ export default function TodoPage() {
   const [filterCategory, setFilterCategory] = useState<string>("All")
   const [isLoaded, setIsLoaded] = useState(false)
   const [view, setView] = useState<"list" | "kanban">("list")
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<{ id: string; email: string | null } | null>(null)
   
   // Pagination State
   const [page, setPage] = useState(0)
@@ -46,7 +46,14 @@ export default function TodoPage() {
     }
   }
 
-  const supabase = createClient()
+  const fetchTodoApi = useCallback(async <T,>(url: string, init?: RequestInit): Promise<T> => {
+    const res = await fetch(url, init)
+    const payload = (await res.json()) as ApiResponse<T>
+    if (!payload.ok) {
+      throw new Error(payload.error.message)
+    }
+    return payload.data
+  }, [])
 
   const fetchTodos = useCallback(async (nextPage: number, isLoadMore = false) => {
     if (!isLoadMore) {
@@ -56,29 +63,20 @@ export default function TodoPage() {
       setIsLoadingMore(true)
     }
 
-    let query = supabase
-      .from('todos')
-      .select('*')
-      .order('created_at', { ascending: false })
+    try {
+      const params = new URLSearchParams({
+        page: String(nextPage),
+        pageSize: String(PAGE_SIZE),
+      })
+      if (filterCategory !== "All") {
+        params.set("category", filterCategory)
+      }
 
-    if (filterCategory !== "All") {
-      query = query.eq('category', filterCategory)
-    }
-
-    const from = nextPage * PAGE_SIZE
-    const to = from + PAGE_SIZE - 1
-
-    const { data, error } = await query.range(from, to)
-    
-    if (error) {
-      console.error("Failed to fetch todos", JSON.stringify(error, null, 2))
-    } else if (data) {
-      const newTodos = data as Todo[]
-      
+      const newTodos = await fetchTodoApi<Todo[]>(`/api/todos?${params.toString()}`)
       if (isLoadMore) {
-        setTodos(prev => {
-          const existingIds = new Set(prev.map(t => t.id))
-          const uniqueNewTodos = newTodos.filter(t => !existingIds.has(t.id))
+        setTodos((prev) => {
+          const existingIds = new Set(prev.map((t) => t.id))
+          const uniqueNewTodos = newTodos.filter((t) => !existingIds.has(t.id))
           return [...prev, ...uniqueNewTodos]
         })
         setPage(nextPage)
@@ -87,20 +85,29 @@ export default function TodoPage() {
       }
 
       setHasMore(newTodos.length === PAGE_SIZE)
+    } catch (error) {
+      console.error("Failed to fetch todos", error)
     }
     
     setIsLoaded(true)
     setIsLoadingMore(false)
-  }, [filterCategory, supabase])
+  }, [fetchTodoApi, filterCategory])
 
   // Initial user check
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      try {
+        const data = await fetchTodoApi<{ user: { id: string; email: string | null } | null }>(
+          "/api/auth/session"
+        )
+        setUser(data.user)
+      } catch (error) {
+        console.error("Failed to check session", error)
+        setUser(null)
+      }
     }
     checkUser()
-  }, [supabase])
+  }, [fetchTodoApi])
 
   // Fetch on filter change
   useEffect(() => {
@@ -135,25 +142,20 @@ export default function TodoPage() {
     setTodos([newTodo, ...todos])
     setInputValue("")
 
-    const { data, error } = await supabase
-      .from('todos')
-      .insert({
-        text: newTodo.text,
-        category: newTodo.category,
-        status: newTodo.status,
-        completed: newTodo.completed,
-        user_id: user.id
+    try {
+      const data = await fetchTodoApi<Todo>("/api/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: newTodo.text,
+          category: newTodo.category,
+        }),
       })
-      .select()
-      .single()
-
-    if (error) {
-      console.error("Failed to add todo", JSON.stringify(error, null, 2))
+      setTodos((prev) => prev.map((t) => (t.id === tempId ? data : t)))
+    } catch (error) {
+      console.error("Failed to add todo", error)
       // Rollback
       setTodos((prev) => prev.filter((t) => t.id !== tempId))
-    } else if (data) {
-      // Replace temp ID with real ID
-      setTodos((prev) => prev.map((t) => (t.id === tempId ? (data as Todo) : t)))
     }
   }
 
@@ -177,12 +179,13 @@ export default function TodoPage() {
       })
     )
 
-    const { error } = await supabase
-      .from('todos')
-      .update({ completed: newCompleted, status: newStatus })
-      .eq('id', id)
-
-    if (error) {
+    try {
+      await fetchTodoApi<Todo>(`/api/todos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: newCompleted, status: newStatus }),
+      })
+    } catch (error) {
       console.error("Failed to toggle todo", error)
       // Rollback
       setTodos(
@@ -200,9 +203,9 @@ export default function TodoPage() {
     const prevTodos = [...todos]
     setTodos(todos.filter((t) => t.id !== id))
 
-    const { error } = await supabase.from('todos').delete().eq('id', id)
-
-    if (error) {
+    try {
+      await fetchTodoApi<{ id: string }>(`/api/todos/${id}`, { method: "DELETE" })
+    } catch (error) {
       console.error("Failed to delete todo", error)
       setTodos(prevTodos)
     }
@@ -236,12 +239,13 @@ export default function TodoPage() {
 
       setTodos(todos.map(t => t.id === draggableId ? updatedTodo : t))
 
-      const { error } = await supabase
-        .from('todos')
-        .update({ status: destStatus, completed: destStatus === "Done" })
-        .eq('id', draggableId)
-
-      if (error) {
+      try {
+        await fetchTodoApi<Todo>(`/api/todos/${draggableId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: destStatus, completed: destStatus === "Done" }),
+        })
+      } catch (error) {
          console.error("Failed to update status", error)
          setTodos(todos)
       }
@@ -258,12 +262,13 @@ export default function TodoPage() {
     const prevTodos = [...todos]
     setTodos(todos.map((t) => t.id === id ? { ...t, category: newCategory } : t))
 
-    const { error } = await supabase
-      .from('todos')
-      .update({ category: newCategory })
-      .eq('id', id)
-
-    if (error) {
+    try {
+      await fetchTodoApi<Todo>(`/api/todos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: newCategory }),
+      })
+    } catch (error) {
       console.error("Failed to update category", error)
       setTodos(prevTodos)
     }
@@ -273,12 +278,13 @@ export default function TodoPage() {
     const prevTodos = [...todos]
     setTodos(todos.map((t) => t.id === id ? { ...t, status: newStatus, completed: newStatus === "Done" } : t))
 
-    const { error } = await supabase
-      .from('todos')
-      .update({ status: newStatus, completed: newStatus === "Done" })
-      .eq('id', id)
-    
-    if (error) {
+    try {
+      await fetchTodoApi<Todo>(`/api/todos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus, completed: newStatus === "Done" }),
+      })
+    } catch (error) {
       console.error("Failed to update status", error)
       setTodos(prevTodos)
     }

@@ -1,26 +1,26 @@
 "use client"
 
-import { createBrowserClient } from "@supabase/ssr"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import type { ApiResponse } from "@/lib/shared/api-response"
 
 export default function LogoutButton() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
   const handleLogout = async () => {
     setIsLoading(true)
     try {
-      await supabase.auth.signOut()
+      const res = await fetch("/api/auth/signout", { method: "POST" })
+      const payload = (await res.json()) as ApiResponse<{ signedOut: boolean }>
+      if (!payload.ok) {
+        throw new Error(payload.error.message)
+      }
       router.push("/")
       router.refresh()
     } catch (error) {
       console.error("Error signing out:", error)
+    } finally {
       setIsLoading(false)
     }
   }

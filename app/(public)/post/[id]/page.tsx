@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
+import { headers } from "next/headers"
 import { Paperclip, Download, Edit } from "lucide-react"
 import TableOfContents from "@/features/post/components/TableOfContents"
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +34,7 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
 export default async function PostPage({ params }: PostPageProps) {
   const { id } = await params
   const { session, post } = await getPostPageData(id)
+  const nonce = (await headers()).get("x-nonce") ?? undefined
 
   if (!post) {
     notFound()
@@ -50,10 +52,12 @@ export default async function PostPage({ params }: PostPageProps) {
     <div className="min-h-screen bg-white">
       {/* JSON-LD 구조화된 데이터 */}
       <script
+        nonce={nonce}
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(articleJsonLd) }}
       />
       <script
+        nonce={nonce}
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd) }}
       />

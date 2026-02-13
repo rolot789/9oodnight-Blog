@@ -2,9 +2,14 @@ import type { Session } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/server"
 import type { Post } from "@/lib/types"
 
+type HomePost = Pick<
+  Post,
+  "id" | "title" | "category" | "excerpt" | "image_url" | "tags" | "created_at" | "read_time"
+>
+
 interface HomePageData {
   session: Session | null
-  blogPosts: Post[]
+  blogPosts: HomePost[]
   allTags: string[]
 }
 
@@ -26,7 +31,10 @@ export async function getHomePageData({
     data: { session },
   } = await supabase.auth.getSession()
 
-  let query = supabase.from("posts").select("*").order("created_at", { ascending: false })
+  let query = supabase
+    .from("posts")
+    .select("id, title, category, excerpt, image_url, tags, created_at, read_time")
+    .order("created_at", { ascending: false })
 
   if (selectedCategory !== "All") {
     query = query.eq("category", selectedCategory)
@@ -37,7 +45,7 @@ export async function getHomePageData({
   }
 
   const { data: posts } = await query
-  const blogPosts = (posts as Post[]) || []
+  const blogPosts = (posts as HomePost[]) || []
 
   const { data: allPosts } = await supabase.from("posts").select("tags")
   const allTags = Array.from(new Set(((allPosts as TagRow[] | null) || []).flatMap((p) => p.tags || []))).sort()

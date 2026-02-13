@@ -1,6 +1,7 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Noto_Sans } from "next/font/google"
+import { headers } from "next/headers"
 import "./globals.css"
 import "katex/dist/katex.min.css"
 import Header from "@/components/layout/Header"
@@ -24,18 +25,20 @@ export const viewport: Viewport = {
   maximumScale: 5,
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
   const websiteJsonLd = generateWebsiteJsonLd()
+  const nonce = (await headers()).get("x-nonce") ?? undefined
 
   return (
     <html lang="ko" className={fontSans.variable}>
       <head>
         {/* JSON-LD 구조화된 데이터 */}
         <script
+          nonce={nonce}
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(websiteJsonLd) }}
         />

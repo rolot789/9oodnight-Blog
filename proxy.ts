@@ -1,11 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
+import { buildContentSecurityPolicy } from "@/lib/shared/csp"
 
 const protectedRoutes = ["/edit", "/admin"]
 
 export async function proxy(request: NextRequest) {
+  const nonce = crypto.randomUUID().replace(/-/g, "")
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set("x-nonce", nonce)
+
   let supabaseResponse = NextResponse.next({
-    request,
+    request: {
+      headers: requestHeaders,
+    },
   })
 
   const supabase = createServerClient(
@@ -38,6 +45,13 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url))
     }
   }
+
+  supabaseResponse.headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce))
+  supabaseResponse.headers.set("X-Content-Type-Options", "nosniff")
+  supabaseResponse.headers.set("X-Frame-Options", "DENY")
+  supabaseResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
+  supabaseResponse.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+  supabaseResponse.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
 
   return supabaseResponse
 }
