@@ -19,6 +19,7 @@ import type { ApiResponse } from "@/lib/shared/api-response"
 
 const PAGE_SIZE = 20
 const NO_POST_LINK = "__none__"
+const TODO_API_TIMEOUT_MS = 12000
 
 export default function TodoPage() {
   const [todos, setTodos] = useState<Todo[]>([])
@@ -28,6 +29,7 @@ export default function TodoPage() {
   const [postOptions, setPostOptions] = useState<PostOption[]>([])
   const [filterCategory, setFilterCategory] = useState<string>("All")
   const [isLoaded, setIsLoaded] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [view, setView] = useState<"list" | "kanban">("list")
   const [user, setUser] = useState<{ id: string; email: string | null } | null>(null)
   
@@ -51,12 +53,26 @@ export default function TodoPage() {
   }
 
   const fetchTodoApi = useCallback(async <T,>(url: string, init?: RequestInit): Promise<T> => {
-    const res = await fetch(url, init)
-    const payload = (await res.json()) as ApiResponse<T>
-    if (!payload.ok) {
-      throw new Error(payload.error.message)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), TODO_API_TIMEOUT_MS)
+    try {
+      const res = await fetch(url, {
+        ...init,
+        signal: controller.signal,
+      })
+      const payload = (await res.json()) as ApiResponse<T>
+      if (!payload.ok) {
+        throw new Error(payload.error.message)
+      }
+      return payload.data
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error("요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.")
+      }
+      throw error
+    } finally {
+      clearTimeout(timeoutId)
     }
-    return payload.data
   }, [])
 
   const loadPostOptions = useCallback(async () => {
@@ -69,6 +85,7 @@ export default function TodoPage() {
   }, [fetchTodoApi])
 
   const fetchTodos = useCallback(async (nextPage: number, isLoadMore = false) => {
+    setLoadError(null)
     if (!isLoadMore) {
       setIsLoaded(false)
       setPage(0)
@@ -100,6 +117,8 @@ export default function TodoPage() {
       setHasMore(newTodos.length === PAGE_SIZE)
     } catch (error) {
       console.error("Failed to fetch todos", error)
+      const message = error instanceof Error ? error.message : "할 일 목록을 불러오지 못했습니다."
+      setLoadError(message)
     }
     
     setIsLoaded(true)
@@ -446,6 +465,12 @@ export default function TodoPage() {
 
           {/* Right Column: Content */}
           <main className="min-w-0">
+            {loadError && (
+              <div className="mb-6 rounded border border-[#f2c8ce] bg-[#fff4f5] px-4 py-3 text-xs tracking-wide text-[#b42318]">
+                {loadError}
+              </div>
+            )}
+
             {/* Input Area */}
             <div className="bg-white p-6 shadow-sm border border-[#e5e5e5] mb-10">
               <div className="flex flex-col sm:flex-row gap-4">

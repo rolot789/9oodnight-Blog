@@ -29,15 +29,16 @@ export const getPostById = cache(async (id: string): Promise<Post | null> => {
 
 export async function getPostPageData(id: string): Promise<PostPageData> {
   const supabase = await createClient()
-  const [{ data: sessionData }, post, seriesContext, linkedTodos] = await Promise.all([
-    supabase.auth.getSession(),
-    getPostById(id),
+
+  const [sessionResult, post, seriesContext, linkedTodos] = await Promise.all([
+    supabase.auth.getSession().catch(() => null),
+    getPostById(id).catch(() => null),
     getSeriesContext(id).catch(() => null),
     listTodosByPost(id, 12).catch(() => []),
   ])
 
   return {
-    session: sessionData.session,
+    session: sessionResult?.data.session ?? null,
     post,
     seriesContext,
     linkedTodos,

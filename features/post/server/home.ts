@@ -26,33 +26,42 @@ export async function getHomePageData({
   selectedCategory,
   selectedTag,
 }: HomePageQuery): Promise<HomePageData> {
-  const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  try {
+    const supabase = await createClient()
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
 
-  let query = supabase
-    .from("posts")
-    .select("id, title, category, excerpt, image_url, tags, created_at, read_time")
-    .order("created_at", { ascending: false })
+    let query = supabase
+      .from("posts")
+      .select("id, title, category, excerpt, image_url, tags, created_at, read_time")
+      .order("created_at", { ascending: false })
 
-  if (selectedCategory !== "All") {
-    query = query.eq("category", selectedCategory)
-  }
+    if (selectedCategory !== "All") {
+      query = query.eq("category", selectedCategory)
+    }
 
-  if (selectedTag) {
-    query = query.contains("tags", [selectedTag])
-  }
+    if (selectedTag) {
+      query = query.contains("tags", [selectedTag])
+    }
 
-  const { data: posts } = await query
-  const blogPosts = (posts as HomePost[]) || []
+    const { data: posts } = await query
+    const blogPosts = (posts as HomePost[]) || []
 
-  const { data: allPosts } = await supabase.from("posts").select("tags")
-  const allTags = Array.from(new Set(((allPosts as TagRow[] | null) || []).flatMap((p) => p.tags || []))).sort()
+    const { data: allPosts } = await supabase.from("posts").select("tags")
+    const allTags = Array.from(new Set(((allPosts as TagRow[] | null) || []).flatMap((p) => p.tags || []))).sort()
 
-  return {
-    session,
-    blogPosts,
-    allTags,
+    return {
+      session,
+      blogPosts,
+      allTags,
+    }
+  } catch (error) {
+    console.error("Failed to load home page data:", error)
+    return {
+      session: null,
+      blogPosts: [],
+      allTags: [],
+    }
   }
 }
