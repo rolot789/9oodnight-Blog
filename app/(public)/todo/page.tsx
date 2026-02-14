@@ -16,6 +16,7 @@ import { cn } from "@/lib/shared/utils"
 import { PostOption, Todo, TodoStatus } from "@/lib/types"
 import { TODO_CATEGORIES as CATEGORIES, STATUSES, STATUS_LABELS, CATEGORY_COLORS } from "@/lib/constants"
 import type { ApiResponse } from "@/lib/shared/api-response"
+import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client"
 
 const PAGE_SIZE = 20
 const NO_POST_LINK = "__none__"
@@ -56,8 +57,18 @@ export default function TodoPage() {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), TODO_API_TIMEOUT_MS)
     try {
+      const headers = new Headers(init?.headers)
+      const supabase = createBrowserSupabaseClient()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        headers.set("Authorization", `Bearer ${session.access_token}`)
+      }
+
       const res = await fetch(url, {
         ...init,
+        headers,
         signal: controller.signal,
       })
       const payload = (await res.json()) as ApiResponse<T>

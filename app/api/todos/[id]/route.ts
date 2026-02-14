@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from "next/server"
 import { apiSuccess } from "@/lib/shared/api-response"
 import { deleteTodo, updateTodo } from "@/features/todo/server/todos"
 import type { TodoStatus } from "@/lib/types"
-import { createClient } from "@/lib/supabase/server"
 import { apiErrorResponse, createApiContext, jsonWithRequestId, logApiSuccess } from "@/lib/server/observability"
+import { getAuthenticatedUser } from "@/lib/server/supabase-auth"
 
 interface Params {
   params: Promise<{ id: string }>
@@ -12,10 +12,7 @@ interface Params {
 export async function PATCH(request: NextRequest, { params }: Params) {
   const context = createApiContext(request)
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const user = await getAuthenticatedUser(request)
     if (!user) {
       return apiErrorResponse(context, "UNAUTHORIZED", "로그인이 필요합니다.", 401)
     }
@@ -52,10 +49,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 export async function DELETE(request: NextRequest, { params }: Params) {
   const context = createApiContext(request)
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const user = await getAuthenticatedUser(request)
     if (!user) {
       return apiErrorResponse(context, "UNAUTHORIZED", "로그인이 필요합니다.", 401)
     }

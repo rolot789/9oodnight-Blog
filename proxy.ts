@@ -39,9 +39,11 @@ export async function proxy(request: NextRequest) {
   )
 
   if (isProtectedRoute) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const userResult = await supabase.auth.getUser().catch(() => null)
+    const sessionResult = userResult?.data.user
+      ? null
+      : await supabase.auth.getSession().catch(() => null)
+    const user = userResult?.data.user ?? sessionResult?.data.session?.user ?? null
 
     if (!user) {
       return NextResponse.redirect(new URL("/login", request.url))

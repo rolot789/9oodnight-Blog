@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { apiSuccess } from "@/lib/shared/api-response"
-import { createClient } from "@/lib/supabase/server"
 import { createTodo, listTodos } from "@/features/todo/server/todos"
 import { apiErrorResponse, createApiContext, jsonWithRequestId, logApiSuccess } from "@/lib/server/observability"
+import { getAuthenticatedUser } from "@/lib/server/supabase-auth"
 
 const DEFAULT_PAGE_SIZE = 20
 const MAX_PAGE_SIZE = 100
@@ -18,10 +18,7 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get("category") ?? undefined
 
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const user = await getAuthenticatedUser(request)
     if (!user) {
       return apiErrorResponse(
         context,
@@ -49,10 +46,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const context = createApiContext(request)
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const user = await getAuthenticatedUser(request)
 
     if (!user) {
       return apiErrorResponse(

@@ -1,15 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { apiSuccess } from "@/lib/shared/api-response"
 import { apiErrorResponse, createApiContext, jsonWithRequestId, logApiSuccess } from "@/lib/server/observability"
+import { getAuthenticatedUser } from "@/lib/server/supabase-auth"
 
 export async function GET(request: NextRequest) {
   const context = createApiContext(request)
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const user = await getAuthenticatedUser(request)
 
     const response = jsonWithRequestId(
       apiSuccess({
