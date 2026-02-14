@@ -1,10 +1,16 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import renderMathInElement from "katex/contrib/auto-render"
 
 interface PostHtmlClientProps {
   html: string
 }
+
+const KATEX_DELIMITERS = [
+  { left: "$$", right: "$$", display: true },
+  { left: "$", right: "$", display: false },
+]
 
 const COPY_ICON = `
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -62,6 +68,17 @@ export default function PostHtmlClient({ html }: PostHtmlClientProps) {
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
+
+    try {
+      renderMathInElement(container, {
+        delimiters: KATEX_DELIMITERS,
+        throwOnError: false,
+        strict: "ignore",
+        ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "option"],
+      })
+    } catch (error) {
+      console.error("Failed to render KaTeX formulas:", error)
+    }
 
     const preBlocks = Array.from(container.querySelectorAll<HTMLPreElement>("pre"))
     for (const pre of preBlocks) {

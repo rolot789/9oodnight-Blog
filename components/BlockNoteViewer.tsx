@@ -5,11 +5,17 @@ import { useCreateBlockNote } from "@blocknote/react"
 import { BlockNoteView } from "@blocknote/mantine"
 import "@blocknote/mantine/style.css"
 import { blockNoteSchema } from "@/features/editor/lib/blocknote-schema"
+import renderMathInElement from "katex/contrib/auto-render"
 
 interface BlockNoteViewerProps {
   content: string
   className?: string
 }
+
+const KATEX_DELIMITERS = [
+  { left: "$$", right: "$$", display: true },
+  { left: "$", right: "$", display: false },
+]
 
 const COPY_ICON = `
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -158,6 +164,17 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
 
     const wrapper = wrapperRef.current
     if (!wrapper) return
+
+    try {
+      renderMathInElement(wrapper, {
+        delimiters: KATEX_DELIMITERS,
+        throwOnError: false,
+        strict: "ignore",
+        ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "option"],
+      })
+    } catch (error) {
+      console.error("Failed to render KaTeX formulas:", error)
+    }
 
     const codeBlocks = Array.from(wrapper.querySelectorAll<HTMLPreElement>("pre"))
 

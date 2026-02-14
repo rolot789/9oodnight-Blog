@@ -5,62 +5,15 @@ import { useCreateBlockNote } from "@blocknote/react"
 import { BlockNoteView } from "@blocknote/mantine"
 import "@blocknote/mantine/style.css"
 import { blockNoteSchema } from "@/features/editor/lib/blocknote-schema"
+import { containsKaTeXMathDelimiters, normalizeKaTeXMarkdown } from "@/lib/shared/katex-markdown"
 
 interface BlockEditorProps {
   initialContent?: string
-  onChange: (html: string) => void
+  onChange: (serialized: string) => void
   editable?: boolean
 }
 
 const CONTENT_SYNC_DEBOUNCE_MS = 300
-const COPY_ICON = `
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-</svg>
-`
-const COPIED_ICON = `
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <path d="M20 6 9 17l-5-5"></path>
-</svg>
-`
-
-function copyWithFallback(text: string): boolean {
-  const textarea = document.createElement("textarea")
-  textarea.value = text
-  textarea.setAttribute("readonly", "")
-  textarea.style.position = "fixed"
-  textarea.style.top = "-1000px"
-  textarea.style.opacity = "0"
-  document.body.appendChild(textarea)
-  textarea.select()
-
-  let copied = false
-  try {
-    copied = document.execCommand("copy")
-  } catch {
-    copied = false
-  } finally {
-    document.body.removeChild(textarea)
-  }
-
-  return copied
-}
-
-async function copyText(text: string): Promise<boolean> {
-  if (!text) return false
-
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return true
-    } catch {
-      return copyWithFallback(text)
-    }
-  }
-
-  return copyWithFallback(text)
-}
 
 function isHTML(content: string): boolean {
   return content.trim().startsWith("<") && content.includes("</")
@@ -70,12 +23,22 @@ function normalizeSerializedContent(content: string): string {
   return content.trim()
 }
 
+function selectSerializedContent(html: string, markdown: string): string {
+  const normalizedHtml = normalizeSerializedContent(html)
+  const normalizedMarkdown = normalizeSerializedContent(normalizeKaTeXMarkdown(markdown))
+
+  if (containsKaTeXMathDelimiters(normalizedMarkdown)) {
+    return normalizedMarkdown
+  }
+
+  return normalizedHtml
+}
+
 export default function BlockEditor({ initialContent = "", onChange, editable = true }: BlockEditorProps) {
   const [isReady, setIsReady] = useState(false)
   const [initialLoaded, setInitialLoaded] = useState(false)
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSerializedRef = useRef<string>(normalizeSerializedContent(initialContent))
-  const editorContainerRef = useRef<HTMLDivElement>(null)
 
   const editor = useCreateBlockNote({
     schema: blockNoteSchema,
@@ -91,16 +54,20 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
     const loadContent = async () => {
       if (initialContent && editor && !initialLoaded) {
         try {
-          let blocks;
+          let blocks
           if (isHTML(initialContent)) {
             // Parse HTML content
             blocks = await editor.tryParseHTMLToBlocks(initialContent)
           } else {
             // Parse Markdown content (backwards compatibility)
-            blocks = await editor.tryParseMarkdownToBlocks(initialContent)
+            const normalizedMarkdown = normalizeKaTeXMarkdown(initialContent)
+            blocks = await editor.tryParseMarkdownToBlocks(normalizedMarkdown)
+            lastSerializedRef.current = normalizeSerializedContent(normalizedMarkdown)
           }
           editor.replaceBlocks(editor.document, blocks)
-          lastSerializedRef.current = normalizeSerializedContent(initialContent)
+          if (isHTML(initialContent)) {
+            lastSerializedRef.current = normalizeSerializedContent(initialContent)
+          }
           setInitialLoaded(true)
         } catch (error) {
           console.error("Failed to parse content:", error)
@@ -114,16 +81,17 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
   const emitContentChange = useCallback(async () => {
     if (!editor || !isReady) return
     try {
-      const html = normalizeSerializedContent(
-        await editor.blocksToHTMLLossy(editor.document)
-      )
-      if (html === lastSerializedRef.current) {
+      const html = editor.blocksToHTMLLossy(editor.document)
+      const markdown = editor.blocksToMarkdownLossy(editor.document)
+      const nextSerialized = selectSerializedContent(html, markdown)
+
+      if (nextSerialized === lastSerializedRef.current) {
         return
       }
-      lastSerializedRef.current = html
-      onChange(html)
+      lastSerializedRef.current = nextSerialized
+      onChange(nextSerialized)
     } catch (error) {
-      console.error("Failed to convert to HTML:", error)
+      console.error("Failed to serialize editor content:", error)
     }
   }, [editor, isReady, onChange])
 
@@ -146,105 +114,6 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
     }
   }, [])
 
-  useEffect(() => {
-    if (!isReady) return
-
-    const container = editorContainerRef.current
-    if (!container) return
-
-    const attachCopyButtons = () => {
-      const codeBlocks = Array.from(container.querySelectorAll<HTMLPreElement>("pre"))
-
-      for (const pre of codeBlocks) {
-        const shell =
-          pre.closest<HTMLElement>('.bn-block-content[data-content-type="codeBlock"]') ??
-          pre.parentElement
-        if (!shell) continue
-
-        shell.classList.add("bn-editor-code-shell")
-        if (shell.querySelector(".bn-editor-code-copy-button")) {
-          continue
-        }
-
-        const button = document.createElement("button")
-        button.type = "button"
-        button.className = "bn-editor-code-copy-button"
-        button.setAttribute("aria-label", "Copy code")
-        button.setAttribute("title", "Copy code")
-        button.innerHTML = `
-          <span class="icon-copy">${COPY_ICON}</span>
-          <span class="icon-copied">${COPIED_ICON}</span>
-        `
-        shell.appendChild(button)
-      }
-    }
-
-    attachCopyButtons()
-
-    let frameId = 0
-    const observer = new MutationObserver(() => {
-      if (frameId) return
-      frameId = window.requestAnimationFrame(() => {
-        frameId = 0
-        attachCopyButtons()
-      })
-    })
-    observer.observe(container, {
-      childList: true,
-      subtree: true,
-    })
-
-    const resetTimers = new Map<HTMLButtonElement, ReturnType<typeof setTimeout>>()
-
-    const resetButtonState = (button: HTMLButtonElement) => {
-      button.classList.remove("is-copied", "is-error")
-      button.setAttribute("aria-label", "Copy code")
-      button.setAttribute("title", "Copy code")
-    }
-
-    const handleCopyClick = async (event: Event) => {
-      const target = event.target as HTMLElement | null
-      const button = target?.closest<HTMLButtonElement>(".bn-editor-code-copy-button")
-      if (!button || !container.contains(button)) return
-
-      const shell = button.closest<HTMLElement>(".bn-editor-code-shell")
-      const codeText = shell?.querySelector("pre code")?.textContent ?? shell?.querySelector("pre")?.textContent ?? ""
-      if (!codeText.trim()) return
-
-      const isCopied = await copyText(codeText)
-      button.classList.remove("is-copied", "is-error")
-      button.classList.add(isCopied ? "is-copied" : "is-error")
-      button.setAttribute("aria-label", isCopied ? "Copied" : "Copy failed")
-      button.setAttribute("title", isCopied ? "Copied" : "Copy failed")
-
-      const existingTimer = resetTimers.get(button)
-      if (existingTimer) {
-        clearTimeout(existingTimer)
-      }
-
-      const resetDelay = isCopied ? 1400 : 1800
-      const timer = setTimeout(() => {
-        resetButtonState(button)
-        resetTimers.delete(button)
-      }, resetDelay)
-      resetTimers.set(button, timer)
-    }
-
-    container.addEventListener("click", handleCopyClick)
-
-    return () => {
-      container.removeEventListener("click", handleCopyClick)
-      observer.disconnect()
-      if (frameId) {
-        window.cancelAnimationFrame(frameId)
-      }
-      for (const timer of resetTimers.values()) {
-        clearTimeout(timer)
-      }
-      resetTimers.clear()
-    }
-  }, [isReady])
-
   if (!isReady) {
     return (
       <div className="w-full min-h-[500px] border border-[#e5e5e5] bg-white rounded-none flex items-center justify-center">
@@ -257,7 +126,7 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
   }
 
   return (
-    <div ref={editorContainerRef} className="blocknote-wrapper w-full min-h-[500px] border border-[#e5e5e5] bg-white rounded-none overflow-hidden">
+    <div className="blocknote-wrapper w-full min-h-[500px] border border-[#e5e5e5] bg-white rounded-none overflow-hidden">
       <BlockNoteView
         editor={editor}
         editable={editable}
@@ -279,18 +148,28 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
           --bn-colors-shadow: rgba(0, 0, 0, 0.08);
           --bn-colors-border: #e5e5e5;
           --bn-colors-side-menu: #c0c0c0;
-          --bn-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif;
+          --bn-font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
         }
         
         .blocknote-wrapper .bn-editor {
-          padding: 24px 28px;
-          min-height: 500px;
-          font-size: 15px;
-          line-height: 1.7;
+          padding: 8px 96px 64px;
+          min-height: 560px;
+          font-size: 16px;
+          line-height: 1.75;
+          max-width: 900px;
+          margin: 0 auto;
         }
         
         .blocknote-wrapper .bn-block-content {
-          font-size: 15px;
+          font-size: 16px;
+          color: #37352f;
+        }
+
+        @media (max-width: 768px) {
+          .blocknote-wrapper .bn-editor {
+            padding: 8px 20px 48px;
+            min-height: 500px;
+          }
         }
         
         .blocknote-wrapper .bn-block-outer {
@@ -325,22 +204,30 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
           color: #c2410c;
         }
         
-        .blocknote-wrapper pre,
         .blocknote-wrapper [data-content-type="codeBlock"] {
-          background-color: #edf3fa !important;
-          color: #1f2937;
-          padding: 16px 0;
-          border-radius: 10px;
-          border: 1px solid #cfdae8;
+          background-color: #f7f6f3 !important;
+          color: #2f3437;
+          border: 1px solid #ebebe8;
+          border-radius: 6px;
+          padding: 2.1rem 0 0.55rem;
           overflow-x: auto;
-          font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
           font-size: 13px;
-          line-height: 1.15;
+          line-height: 1.5;
         }
 
         .blocknote-wrapper .bn-block-content[data-content-type="codeBlock"] pre {
           margin: 0;
-          padding: 0 1rem;
+          padding: 0 0.875rem;
+          background: transparent !important;
+          border: 0;
+          border-radius: 0;
+          box-shadow: none;
+        }
+
+        .blocknote-wrapper .bn-block-content[data-content-type="codeBlock"] pre code {
+          background: transparent !important;
+          color: inherit;
         }
 
         .blocknote-wrapper .bn-editor-code-shell {
@@ -349,59 +236,72 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
 
         .blocknote-wrapper .bn-editor-code-shell pre code {
           display: block;
-          counter-reset: code-line;
         }
 
         .blocknote-wrapper .bn-editor-code-shell pre code .line {
-          position: relative;
           display: block;
-          min-height: 1.15em;
-          padding: 0 1rem 0 3.25rem;
         }
 
-        .blocknote-wrapper .bn-editor-code-shell pre code .line::before {
-          counter-increment: code-line;
-          content: counter(code-line);
+        .blocknote-wrapper .bn-editor-code-shell > div:first-child {
           position: absolute;
-          left: 0;
-          width: 2.5rem;
-          padding-right: 0.75rem;
-          text-align: right;
-          color: #6f7d92;
-          border-right: 1px solid #d3deeb;
-          user-select: none;
+          top: 0.4rem;
+          left: 0.5rem;
+          z-index: 4;
+          pointer-events: none;
+        }
+
+        .blocknote-wrapper .bn-editor-code-shell > div:first-child > select {
+          pointer-events: auto;
+          opacity: 1;
+          height: 24px;
+          min-width: 96px;
+          padding: 0 0.5rem;
+          border-radius: 6px;
+          border: 1px solid #deded9;
+          background-color: #ffffff;
+          color: #2f3437;
+          font-size: 11px;
+          line-height: 1;
+          letter-spacing: 0.01em;
+        }
+
+        .blocknote-wrapper .bn-editor-code-shell > div:first-child > select:focus,
+        .blocknote-wrapper .bn-editor-code-shell:hover > div:first-child > select {
+          border-color: #b9d3e6;
+          outline: none;
+        }
+
+        .blocknote-wrapper .bn-editor-code-copy-container {
+          position: absolute;
+          top: 0.4rem;
+          right: 0.5rem;
+          z-index: 4;
+          pointer-events: none;
         }
 
         .blocknote-wrapper .bn-editor-code-copy-button {
-          position: absolute;
-          top: 0.5rem;
-          right: 0.5rem;
-          z-index: 3;
-          width: 32px;
-          height: 32px;
-          border: 1px solid #dbe3ee;
-          border-radius: 8px;
-          background: rgba(255, 255, 255, 0.92);
-          color: #5c6b80;
+          pointer-events: auto;
+          width: 24px;
+          height: 24px;
+          border: 1px solid #deded9;
+          border-radius: 6px;
+          background: #ffffff;
+          color: #5f6368;
           cursor: pointer;
           display: inline-flex !important;
-          opacity: 1 !important;
-          pointer-events: auto !important;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
           transition: all 0.15s ease;
         }
 
         .blocknote-wrapper .bn-editor-code-copy-button:hover {
-          border-color: #c6d4e3;
-          background: #ffffff;
-          color: #334155;
+          border-color: #b9d3e6;
+          color: #2f3437;
         }
 
         .blocknote-wrapper .bn-editor-code-copy-button svg {
-          width: 15px;
-          height: 15px;
+          width: 13px;
+          height: 13px;
         }
 
         .blocknote-wrapper .bn-editor-code-copy-button .icon-copied {
@@ -409,8 +309,8 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
         }
 
         .blocknote-wrapper .bn-editor-code-copy-button.is-copied {
-          border-color: #b8deca;
-          background: #edf9f1;
+          border-color: #cfe8d9;
+          background: #f3fbf7;
           color: #18794e;
         }
 
@@ -423,54 +323,36 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
         }
 
         .blocknote-wrapper .bn-editor-code-copy-button.is-error {
-          border-color: #f2c8ce;
-          background: #fff4f5;
+          border-color: #f4d6da;
+          background: #fff7f8;
           color: #b42318;
-        }
-
-        .blocknote-wrapper .bn-block-content[data-content-type="codeBlock"] > div > select {
-          top: 10px;
-          left: 14px;
-          opacity: 0.98 !important;
-          padding: 2px 8px;
-          border-radius: 4px;
-          border: 1px solid #ccd7e4;
-          background-color: rgba(255, 255, 255, 0.96);
-          color: #334155;
-          font-size: 11px;
-          letter-spacing: 0.01em;
-        }
-
-        .blocknote-wrapper .bn-block-content[data-content-type="codeBlock"] > div > select:focus,
-        .blocknote-wrapper .bn-block-content[data-content-type="codeBlock"]:hover > div > select {
-          opacity: 1 !important;
-          border-color: #a8bad0;
         }
         
         .blocknote-wrapper h1,
         .blocknote-wrapper [data-level="1"] {
-          font-size: 2rem;
+          font-size: 2.5rem;
           font-weight: 700;
-          margin-top: 2rem;
-          margin-bottom: 0.75rem;
-          line-height: 1.3;
+          margin-top: 1.15em;
+          margin-bottom: 0.2em;
+          line-height: 1.2;
         }
         
         .blocknote-wrapper h2,
         .blocknote-wrapper [data-level="2"] {
-          font-size: 1.5rem;
+          font-size: 1.875rem;
           font-weight: 600;
-          margin-top: 1.75rem;
-          margin-bottom: 0.5rem;
-          line-height: 1.35;
+          margin-top: 1.2em;
+          margin-bottom: 0.15em;
+          line-height: 1.3;
         }
         
         .blocknote-wrapper h3,
         .blocknote-wrapper [data-level="3"] {
-          font-size: 1.25rem;
+          font-size: 1.5rem;
           font-weight: 600;
-          margin-top: 1.5rem;
-          margin-bottom: 0.5rem;
+          margin-top: 1.1em;
+          margin-bottom: 0.1em;
+          line-height: 1.3;
         }
         
         .blocknote-wrapper blockquote,

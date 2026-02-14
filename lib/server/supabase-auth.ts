@@ -18,11 +18,6 @@ export async function getAuthenticatedUser(request?: NextRequest): Promise<User 
     return userResult.data.user
   }
 
-  const sessionResult = await supabase.auth.getSession().catch(() => null)
-  if (sessionResult?.data.session?.user) {
-    return sessionResult.data.session.user
-  }
-
   const bearerToken = extractBearerToken(request)
   if (bearerToken) {
     const bearerUserResult = await supabase.auth.getUser(bearerToken).catch(() => null)

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useMemo, Suspense, useCallback } from "react"
+import { useEffect, useState, useMemo, Suspense, useCallback, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog"
@@ -14,6 +14,7 @@ import dynamic from "next/dynamic"
 import TableOfContents from "@/features/post/components/TableOfContents"
 import { POST_CATEGORIES as categories, DEFAULT_IMAGES } from "@/lib/constants"
 import { useLocalDraft } from "@/features/editor/hooks/useLocalDraft"
+import { MARKDOWN_IMPORT_STORAGE_KEY, parseMarkdownImportPayload } from "@/lib/shared/markdown-import"
 
 const RealtimePreview = dynamic(() => import("@/features/editor/components/RealtimePreview"), {
   ssr: false,
@@ -93,6 +94,7 @@ function EditFormContent() {
   const [userId, setUserId] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [isPostLoading, setIsPostLoading] = useState(false)
+  const importedMarkdownAppliedRef = useRef(false)
 
   const supabase = useMemo(() => createClient(), [])
   const isEditMode = postId !== null
@@ -230,6 +232,61 @@ function EditFormContent() {
       ),
     onRestore: applyDraftPayload,
   })
+
+  useEffect(() => {
+    if (isEditMode || importedMarkdownAppliedRef.current) {
+      return
+    }
+
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const rawPayload = window.localStorage.getItem(MARKDOWN_IMPORT_STORAGE_KEY)
+    importedMarkdownAppliedRef.current = true
+
+    if (!rawPayload) {
+      return
+    }
+
+    window.localStorage.removeItem(MARKDOWN_IMPORT_STORAGE_KEY)
+
+    const parsedPayload = parseMarkdownImportPayload(rawPayload)
+    if (!parsedPayload) {
+      toast.error("Failed to parse markdown preset.")
+      return
+    }
+
+    const hasExistingContent = Boolean(
+      title.trim() ||
+        excerpt.trim() ||
+        content.trim() ||
+        tags.length > 0 ||
+        attachments.length > 0 ||
+        seriesTitle.trim() ||
+        seriesSlug.trim() ||
+        seriesPosition.trim()
+    )
+
+    if (hasExistingContent) {
+      return
+    }
+
+    setTitle(parsedPayload.title)
+    setExcerpt(parsedPayload.excerpt)
+    setContent(parsedPayload.body)
+    toast.success("Markdown preset imported.")
+  }, [
+    isEditMode,
+    title,
+    excerpt,
+    content,
+    tags.length,
+    attachments.length,
+    seriesTitle,
+    seriesSlug,
+    seriesPosition,
+  ])
 
   const handlePreview = () => {
     const previewData = { ...draftPayload, postId }
@@ -522,17 +579,8 @@ function EditFormContent() {
         router.push(`/post/${savedPostId}`)
         router.refresh()
       } else {
-        setTitle("")
-        setCategory("")
-        setExcerpt("")
-        setContent("")
-        setTags([])
-        setSeriesTitle("")
-        setSeriesSlug("")
-        setSeriesPosition("")
-        setImageUrl(DEFAULT_IMAGES.THUMBNAIL)
-        setFeaturedImagePath(null)
-        setAttachments([])
+        router.push("/")
+        router.refresh()
       }
     }
 
@@ -576,17 +624,17 @@ function EditFormContent() {
           <Toggle 
             pressed={showPreview} 
             onPressedChange={setShowPreview}
-            className="flex items-center gap-2 border border-[#e5e5e5] px-5 py-2 hover:bg-gray-50 data-[state=on]:bg-[#080f18] data-[state=on]:text-white transition-all rounded-none text-xs h-[34px]"
+            className="flex items-center gap-2 border border-[#080f18] bg-transparent px-6 py-3 text-xs tracking-wider text-[#080f18] transition-all hover:border-[#6096ba] hover:text-[#6096ba] data-[state=on]:border-[#080f18] data-[state=on]:bg-transparent data-[state=on]:text-[#080f18] rounded-none"
             aria-label="Toggle Split Preview"
           >
             {showPreview ? <Columns className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            <span className="font-medium">{showPreview ? "Split" : "Preview"}</span>
+            <span>{showPreview ? "Split" : "Preview"}</span>
           </Toggle>
           <button 
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || isUploading} 
-            className="bg-[#080f18] px-5 py-2 text-xs font-medium text-white transition-all hover:bg-[#1a2632] disabled:opacity-50 rounded-none h-[34px]"
+            className="border border-[#080f18] bg-transparent px-6 py-3 text-xs tracking-wider text-[#080f18] transition-all hover:border-[#6096ba] hover:text-[#6096ba] disabled:opacity-50 disabled:hover:border-[#080f18] disabled:hover:text-[#080f18] rounded-none"
           >
             {isSubmitting ? "Saving..." : isEditMode ? "Update" : "Publish"}
           </button>

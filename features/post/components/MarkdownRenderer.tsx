@@ -9,6 +9,7 @@ import "katex/dist/katex.min.css"
 import CodeBlock from "@/components/CodeBlock"
 import { mdxComponents } from "@/components/mdx-components"
 import { sanitizeHtmlContent } from "@/lib/shared/security"
+import { normalizeKaTeXMarkdown } from "@/lib/shared/katex-markdown"
 
 interface MarkdownRendererProps {
   content: string
@@ -32,7 +33,7 @@ function isHTML(content: string): boolean {
 
 // Normalize markdown content for consistent rendering
 function normalizeMarkdown(content: string): string {
-  let normalized = content
+  let normalized = normalizeKaTeXMarkdown(content)
 
   // Normalize line breaks for paragraphs
   normalized = normalized.replace(/\n\n+/g, '\n\n')

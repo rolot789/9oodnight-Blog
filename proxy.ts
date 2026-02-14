@@ -26,6 +26,14 @@ export async function proxy(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value)
+          })
+          supabaseResponse = NextResponse.next({
+            request: {
+              headers: requestHeaders,
+            },
+          })
           cookiesToSet.forEach(({ name, value, options }) => {
             supabaseResponse.cookies.set(name, value, options)
           })
@@ -34,20 +42,14 @@ export async function proxy(request: NextRequest) {
     }
   )
 
+  const { data } = await supabase.auth.getClaims()
+
   const isProtectedRoute = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   )
 
-  if (isProtectedRoute) {
-    const userResult = await supabase.auth.getUser().catch(() => null)
-    const sessionResult = userResult?.data.user
-      ? null
-      : await supabase.auth.getSession().catch(() => null)
-    const user = userResult?.data.user ?? sessionResult?.data.session?.user ?? null
-
-    if (!user) {
-      return NextResponse.redirect(new URL("/login", request.url))
-    }
+  if (isProtectedRoute && !data?.claims?.sub) {
+    return NextResponse.redirect(new URL("/login", request.url))
   }
 
   supabaseResponse.headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce))

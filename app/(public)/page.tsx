@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { getHomePageData } from "@/features/post/server/home"
+import CreateFromMarkdownDialog from "@/components/create/CreateFromMarkdownDialog"
 
 const CATEGORIES = ["All", "Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
 
@@ -16,7 +17,7 @@ export default async function Page({ searchParams }: PageProps) {
   const selectedCategory = category || "All"
   const selectedTag = tag || null
 
-  const { session, blogPosts, allTags } = await getHomePageData({
+  const { user, blogPosts, allTags } = await getHomePageData({
     selectedCategory,
     selectedTag,
   })
@@ -100,17 +101,13 @@ export default async function Page({ searchParams }: PageProps) {
           <main className="min-w-0"> {/* min-w-0 prevents overflow issues in grid */}
             
             {/* Admin Actions */}
-            {session && (
+            {user && (
               <div className="mb-10 flex justify-end">
-                <Link
-                  href="/edit"
+                <CreateFromMarkdownDialog
+                  label="CREATE"
+                  showPlusIcon
                   className="flex items-center gap-2 border border-[#080f18] bg-transparent px-6 py-3 text-xs tracking-wider text-[#080f18] transition-all hover:text-[#6096ba] hover:border-[#6096ba]"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-                  </svg>
-                  CREATE
-                </Link>
+                />
               </div>
             )}
 
@@ -158,7 +155,7 @@ export default async function Page({ searchParams }: PageProps) {
                         </span>
                         <span>{post.read_time} read</span>
                       </div>
-                      {session && (
+                      {user && (
                         <div className="flex gap-3">
                           <Link
                             href={`/edit?id=${post.id}`}
@@ -175,8 +172,11 @@ export default async function Page({ searchParams }: PageProps) {
               {blogPosts.length === 0 && (
                 <div className="py-20 text-center border border-dashed border-[#e5e5e5]">
                   <p className="text-sm text-[#8b8c89] mb-2">No posts found in {selectedCategory}.</p>
-                  {session && (
-                     <Link href="/edit" className="text-xs text-[#6096ba] underline">Create one now</Link>
+                  {user && (
+                    <CreateFromMarkdownDialog
+                      label="Create one now"
+                      className="text-xs text-[#6096ba] underline"
+                    />
                   )}
                 </div>
               )}

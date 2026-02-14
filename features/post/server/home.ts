@@ -1,4 +1,4 @@
-import type { Session } from "@supabase/supabase-js"
+import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/server"
 import type { Post } from "@/lib/types"
 
@@ -8,7 +8,7 @@ type HomePost = Pick<
 >
 
 interface HomePageData {
-  session: Session | null
+  user: User | null
   blogPosts: HomePost[]
   allTags: string[]
 }
@@ -29,8 +29,8 @@ export async function getHomePageData({
   try {
     const supabase = await createClient()
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
     let query = supabase
       .from("posts")
@@ -52,14 +52,14 @@ export async function getHomePageData({
     const allTags = Array.from(new Set(((allPosts as TagRow[] | null) || []).flatMap((p) => p.tags || []))).sort()
 
     return {
-      session,
+      user,
       blogPosts,
       allTags,
     }
   } catch (error) {
     console.error("Failed to load home page data:", error)
     return {
-      session: null,
+      user: null,
       blogPosts: [],
       allTags: [],
     }

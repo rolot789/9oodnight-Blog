@@ -2,6 +2,7 @@ node_modules/
 .env.local
 .env
 .next/
+*.tsbuildinfo
 
 .gemini/
 gha-creds-*.json

@@ -6,8 +6,8 @@ import { Search } from "lucide-react"
 export default async function Header() {
   const supabase = await createClient()
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
   return (
     <header className="w-full border-b border-[#e5e5e5] bg-white sticky top-0 z-50">
@@ -22,7 +22,7 @@ export default async function Header() {
           <Link href="/todo" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">
             TODO
           </Link>
-          {session ? (
+          {user ? (
             <LogoutButton />
           ) : (
             <Link href="/login" className="text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]">

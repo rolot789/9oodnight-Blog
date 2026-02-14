@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
 
 export default async function PostPage({ params }: PostPageProps) {
   const { id } = await params
-  const { session, post, seriesContext, linkedTodos } = await getPostPageData(id)
+  const { user, post, seriesContext, linkedTodos } = await getPostPageData(id)
   const nonce = (await headers()).get("x-nonce") ?? undefined
 
   if (!post) {
@@ -85,7 +85,7 @@ export default async function PostPage({ params }: PostPageProps) {
               </Link>
 
               {/* Edit Link - Visible if logged in */}
-              {session && (
+              {user && (
                 <Link
                   href={`/edit?id=${post.id}`}
                   className="inline-flex items-center gap-2 text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"

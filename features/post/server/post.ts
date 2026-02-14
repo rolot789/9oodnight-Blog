@@ -1,12 +1,12 @@
 import { cache } from "react"
-import type { Session } from "@supabase/supabase-js"
+import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/server"
 import type { Post, SeriesContext, Todo } from "@/lib/types"
 import { getSeriesContext } from "@/features/post/server/series"
 import { listTodosByPost } from "@/features/todo/server/todos"
 
 interface PostPageData {
-  session: Session | null
+  user: User | null
   post: Post | null
   seriesContext: SeriesContext | null
   linkedTodos: Todo[]
@@ -30,15 +30,15 @@ export const getPostById = cache(async (id: string): Promise<Post | null> => {
 export async function getPostPageData(id: string): Promise<PostPageData> {
   const supabase = await createClient()
 
-  const [sessionResult, post, seriesContext, linkedTodos] = await Promise.all([
-    supabase.auth.getSession().catch(() => null),
+  const [userResult, post, seriesContext, linkedTodos] = await Promise.all([
+    supabase.auth.getUser().catch(() => null),
     getPostById(id).catch(() => null),
     getSeriesContext(id).catch(() => null),
     listTodosByPost(id, 12).catch(() => []),
   ])
 
   return {
-    session: sessionResult?.data.session ?? null,
+    user: userResult?.data.user ?? null,
     post,
     seriesContext,
     linkedTodos,
