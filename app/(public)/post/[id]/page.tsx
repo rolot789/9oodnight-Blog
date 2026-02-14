@@ -4,7 +4,7 @@ import { headers } from "next/headers"
 import { Paperclip, Download, Edit, CheckCircle2, Circle } from "lucide-react"
 import TableOfContents from "@/features/post/components/TableOfContents"
 import { Badge } from "@/components/ui/badge"
-import BlockNoteViewerClient from "@/components/BlockNoteViewerClient"
+import PostContent from "@/features/post/components/PostContent"
 import RelatedPosts from "@/features/post/components/RelatedPosts"
 import SeriesNavigator from "@/features/post/components/SeriesNavigator"
 import { generatePostMetadata, generateArticleJsonLd, generateBreadcrumbJsonLd, siteConfig } from "@/lib/seo"
@@ -141,7 +141,7 @@ export default async function PostPage({ params }: PostPageProps) {
 
           {/* Main Content */}
           <div className="text-base text-[#080f18]">
-            <BlockNoteViewerClient content={post.content} />
+            <PostContent content={post.content} />
           </div>
 
           {/* Series Navigator */}

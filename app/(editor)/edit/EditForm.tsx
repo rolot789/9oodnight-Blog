@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useMemo, Suspense, useRef } from "react"
+import { useEffect, useState, useMemo, Suspense, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog"
@@ -13,6 +13,7 @@ import { toast } from "sonner"
 import dynamic from "next/dynamic"
 import TableOfContents from "@/features/post/components/TableOfContents"
 import { POST_CATEGORIES as categories, DEFAULT_IMAGES } from "@/lib/constants"
+import { useLocalDraft } from "@/features/editor/hooks/useLocalDraft"
 
 const RealtimePreview = dynamic(() => import("@/features/editor/components/RealtimePreview"), {
   ssr: false,
@@ -33,7 +34,7 @@ interface Attachment {
   filePath: string
 }
 
-interface LocalDraftPayload {
+interface DraftPayload {
   title: string
   category: string
   excerpt: string
@@ -45,7 +46,6 @@ interface LocalDraftPayload {
   seriesTitle: string
   seriesSlug: string
   seriesPosition: string
-  updatedAt: string
 }
 
 function normalizeSeriesSlug(input: string): string {
@@ -90,9 +90,6 @@ function EditFormContent() {
   const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
-  const [isAutoSaving, setIsAutoSaving] = useState(false)
-  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null)
-  const [recoverableDraft, setRecoverableDraft] = useState<LocalDraftPayload | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [isPostLoading, setIsPostLoading] = useState(false)
@@ -103,27 +100,41 @@ function EditFormContent() {
     () => (isEditMode ? `editor:draft:${postId}` : "editor:draft:new"),
     [isEditMode, postId]
   )
-  const hasCheckedDraftRef = useRef(false)
 
-  const getDraftPayload = (): Omit<LocalDraftPayload, "updatedAt"> => ({
-    title,
-    category,
-    excerpt,
-    content,
-    tags,
-    imageUrl,
-    featuredImagePath,
-    attachments,
-    seriesTitle,
-    seriesSlug,
-    seriesPosition,
-  })
+  const draftPayload = useMemo<DraftPayload>(
+    () => ({
+      title,
+      category,
+      excerpt,
+      content,
+      tags,
+      imageUrl,
+      featuredImagePath,
+      attachments,
+      seriesTitle,
+      seriesSlug,
+      seriesPosition,
+    }),
+    [
+      title,
+      category,
+      excerpt,
+      content,
+      tags,
+      imageUrl,
+      featuredImagePath,
+      attachments,
+      seriesTitle,
+      seriesSlug,
+      seriesPosition,
+    ]
+  )
 
-  const applyDraftPayload = (draft: LocalDraftPayload) => {
-    setTitle(draft.title)
-    setCategory(draft.category)
-    setExcerpt(draft.excerpt)
-    setContent(draft.content)
+  const applyDraftPayload = useCallback((draft: DraftPayload) => {
+    setTitle(draft.title || "")
+    setCategory(draft.category || "")
+    setExcerpt(draft.excerpt || "")
+    setContent(draft.content || "")
     setTags(draft.tags || [])
     setImageUrl(draft.imageUrl || DEFAULT_IMAGES.THUMBNAIL)
     setFeaturedImagePath(draft.featuredImagePath || null)
@@ -131,7 +142,7 @@ function EditFormContent() {
     setSeriesTitle(draft.seriesTitle || "")
     setSeriesSlug(draft.seriesSlug || "")
     setSeriesPosition(draft.seriesPosition || "")
-  }
+  }, [])
 
   useEffect(() => {
     const checkUser = async () => {
@@ -196,121 +207,48 @@ function EditFormContent() {
 
   const isEditorReady = !isEditMode || !isPostLoading
 
-  useEffect(() => {
-    hasCheckedDraftRef.current = false
-    setRecoverableDraft(null)
-    setLastAutoSavedAt(null)
-  }, [draftStorageKey])
-
-  useEffect(() => {
-    if (!isEditorReady || hasCheckedDraftRef.current) {
-      return
-    }
-
-    hasCheckedDraftRef.current = true
-
-    try {
-      const raw = localStorage.getItem(draftStorageKey)
-      if (!raw) {
-        return
-      }
-
-      const parsed = JSON.parse(raw) as LocalDraftPayload
-      if (!parsed || typeof parsed !== "object") {
-        return
-      }
-
-      const currentSnapshot = JSON.stringify(getDraftPayload())
-      const draftSnapshot = JSON.stringify({
-        title: parsed.title ?? "",
-        category: parsed.category ?? "",
-        excerpt: parsed.excerpt ?? "",
-        content: parsed.content ?? "",
-        tags: parsed.tags ?? [],
-        imageUrl: parsed.imageUrl ?? DEFAULT_IMAGES.THUMBNAIL,
-        featuredImagePath: parsed.featuredImagePath ?? null,
-        attachments: parsed.attachments ?? [],
-        seriesTitle: parsed.seriesTitle ?? "",
-        seriesSlug: parsed.seriesSlug ?? "",
-        seriesPosition: parsed.seriesPosition ?? "",
-      })
-
-      if (draftSnapshot !== currentSnapshot) {
-        setRecoverableDraft(parsed)
-      }
-    } catch (error) {
-      console.error("Failed to read local draft:", error)
-    }
-  }, [draftStorageKey, isEditorReady, title, category, excerpt, content, tags, imageUrl, featuredImagePath, attachments, seriesTitle, seriesSlug, seriesPosition])
-
-  useEffect(() => {
-    if (!isEditorReady) {
-      return
-    }
-
-    if (recoverableDraft) {
-      return
-    }
-
-    const payload = getDraftPayload()
-    const hasMeaningfulContent = Boolean(
-      payload.title.trim() ||
-      payload.excerpt.trim() ||
-      payload.content.trim() ||
-      payload.tags.length > 0 ||
-      payload.attachments.length > 0 ||
-      payload.seriesTitle.trim()
-    )
-
-    if (!hasMeaningfulContent) {
-      localStorage.removeItem(draftStorageKey)
-      return
-    }
-
-    const timer = setTimeout(() => {
-      try {
-        setIsAutoSaving(true)
-        localStorage.setItem(
-          draftStorageKey,
-          JSON.stringify({
-            ...payload,
-            updatedAt: new Date().toISOString(),
-          } satisfies LocalDraftPayload)
-        )
-        setLastAutoSavedAt(new Date().toISOString())
-      } catch (error) {
-        console.error("Failed to autosave draft:", error)
-      } finally {
-        setIsAutoSaving(false)
-      }
-    }, 1200)
-
-    return () => clearTimeout(timer)
-  }, [draftStorageKey, isEditorReady, recoverableDraft, title, category, excerpt, content, tags, imageUrl, featuredImagePath, attachments, seriesTitle, seriesSlug, seriesPosition])
+  const {
+    recoverableDraft,
+    isAutoSaving,
+    lastAutoSavedAt,
+    restoreDraft,
+    dismissRecoveredDraft,
+    deleteRecoveredDraft,
+    clearDraft,
+  } = useLocalDraft<DraftPayload>({
+    storageKey: draftStorageKey,
+    isReady: isEditorReady,
+    payload: draftPayload,
+    hasMeaningfulContent: (payload) =>
+      Boolean(
+        payload.title.trim() ||
+          payload.excerpt.trim() ||
+          payload.content.trim() ||
+          payload.tags.length > 0 ||
+          payload.attachments.length > 0 ||
+          payload.seriesTitle.trim()
+      ),
+    onRestore: applyDraftPayload,
+  })
 
   const handlePreview = () => {
-    const previewData = { title, category, excerpt, content, imageUrl, attachments, tags, postId }
+    const previewData = { ...draftPayload, postId }
     localStorage.setItem("previewData", JSON.stringify(previewData))
     window.location.href = "/edit/preview"
   }
 
   const handleRestoreDraft = () => {
-    if (!recoverableDraft) {
-      return
+    if (restoreDraft()) {
+      toast.success("Saved draft restored.")
     }
-    applyDraftPayload(recoverableDraft)
-    setRecoverableDraft(null)
-    toast.success("Saved draft restored.")
   }
 
   const handleDismissRecoveredDraft = () => {
-    setRecoverableDraft(null)
+    dismissRecoveredDraft()
   }
 
   const handleDeleteRecoveredDraft = () => {
-    localStorage.removeItem(draftStorageKey)
-    setRecoverableDraft(null)
-    setLastAutoSavedAt(null)
+    deleteRecoveredDraft()
     toast.success("Local draft deleted.")
   }
 
@@ -368,7 +306,7 @@ function EditFormContent() {
       toast.error(`Error: ${error.message}`)
       setIsSubmitting(false)
     } else {
-      localStorage.removeItem(draftStorageKey)
+      clearDraft()
       router.push("/")
       router.refresh()
     }
@@ -395,7 +333,10 @@ function EditFormContent() {
       toast.error(`Upload error: ${error.message}`)
     } else {
       const { data: { publicUrl } } = supabase.storage.from("files").getPublicUrl(filePath)
-      setAttachments([...attachments, { filename: file.name, url: publicUrl, filePath: filePath }])
+      setAttachments((current) => [
+        ...current,
+        { filename: file.name, url: publicUrl, filePath },
+      ])
     }
     setIsUploading(false)
   }
@@ -463,7 +404,7 @@ function EditFormContent() {
     if (!fileToDelete) return
 
     const filePathToDelete = fileToDelete
-    setAttachments(attachments.filter(att => att.filePath !== filePathToDelete))
+    setAttachments((current) => current.filter((att) => att.filePath !== filePathToDelete))
     setFileToDelete(null)
 
     const { error } = await supabase.storage.from('files').remove([filePathToDelete])
@@ -473,9 +414,14 @@ function EditFormContent() {
     }
   }
 
-  const handleContentChange = (markdown: string) => {
+  const handleContentChange = useCallback((nextContent: string) => {
+    if (!nextContent.includes("'''")) {
+      setContent((prev) => (prev === nextContent ? prev : nextContent))
+      return
+    }
+
     // Auto-convert ''' to ``` for code blocks
-    const lines = markdown.split("\n")
+    const lines = nextContent.split("\n")
     let updated = false
     const updatedLines = lines.map((line) => {
       if (line.trim() === "'''") {
@@ -485,8 +431,9 @@ function EditFormContent() {
       return line
     })
 
-    setContent(updated ? updatedLines.join("\n") : markdown)
-  }
+    const normalized = updated ? updatedLines.join("\n") : nextContent
+    setContent((prev) => (prev === normalized ? prev : normalized))
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -568,9 +515,7 @@ function EditFormContent() {
         }
       }
 
-      localStorage.removeItem(draftStorageKey)
-      setLastAutoSavedAt(null)
-      setRecoverableDraft(null)
+      clearDraft()
 
       toast.success(`Post ${isEditMode ? "updated" : "published"} successfully!`)
       if (isEditMode && savedPostId) {
