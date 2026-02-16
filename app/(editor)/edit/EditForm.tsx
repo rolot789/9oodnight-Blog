@@ -624,7 +624,7 @@ function EditFormContent() {
           <Toggle 
             pressed={showPreview} 
             onPressedChange={setShowPreview}
-            className="flex items-center gap-2 border border-[#080f18] bg-transparent px-6 py-3 text-xs tracking-wider text-[#080f18] transition-all hover:border-[#6096ba] hover:text-[#6096ba] data-[state=on]:border-[#080f18] data-[state=on]:bg-transparent data-[state=on]:text-[#080f18] rounded-none"
+            className="inline-flex h-10 w-[124px] shrink-0 items-center justify-center gap-2 rounded-none border border-[#080f18] bg-transparent px-4 text-xs tracking-wider text-[#080f18] transition-all hover:border-[#6096ba] hover:text-[#6096ba] data-[state=on]:border-[#080f18] data-[state=on]:bg-transparent data-[state=on]:text-[#080f18]"
             aria-label="Toggle Split Preview"
           >
             {showPreview ? <Columns className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -634,7 +634,7 @@ function EditFormContent() {
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || isUploading} 
-            className="border border-[#080f18] bg-transparent px-6 py-3 text-xs tracking-wider text-[#080f18] transition-all hover:border-[#6096ba] hover:text-[#6096ba] disabled:opacity-50 disabled:hover:border-[#080f18] disabled:hover:text-[#080f18] rounded-none"
+            className="inline-flex h-10 w-[124px] shrink-0 items-center justify-center rounded-none border border-[#080f18] bg-transparent px-4 text-xs tracking-wider text-[#080f18] transition-all hover:border-[#6096ba] hover:text-[#6096ba] disabled:opacity-50 disabled:hover:border-[#080f18] disabled:hover:text-[#080f18]"
           >
             {isSubmitting ? "Saving..." : isEditMode ? "Update" : "Publish"}
           </button>

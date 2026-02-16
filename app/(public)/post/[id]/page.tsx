@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import PostContent from "@/features/post/components/PostContent"
 import RelatedPosts from "@/features/post/components/RelatedPosts"
 import SeriesNavigator from "@/features/post/components/SeriesNavigator"
+import ExcerptRenderer from "@/features/post/components/ExcerptRenderer"
 import { generatePostMetadata, generateArticleJsonLd, generateBreadcrumbJsonLd, siteConfig } from "@/lib/seo"
 import type { Metadata } from "next"
 import { getPostById, getPostPageData } from "@/features/post/server/post"
@@ -110,6 +111,15 @@ export default async function PostPage({ params }: PostPageProps) {
 
             {/* Title */}
             <h1 className="mb-6 text-2xl font-light tracking-wide text-[#080f18] md:text-3xl">{post.title}</h1>
+
+            {/* Excerpt */}
+            {post.excerpt?.trim() && (
+              <ExcerptRenderer
+                content={post.excerpt}
+                variant="view"
+                className="mb-6"
+              />
+            )}
 
             {/* Meta */}
             <div className="mb-8 flex items-center gap-4 text-[11px] text-[#8b8c89]">

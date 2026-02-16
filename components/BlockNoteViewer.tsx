@@ -324,6 +324,64 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
           font-size: 14px;
           color: #c2410c;
         }
+
+        .blocknote-viewer-wrapper [data-inline-content-type="inlineMath"],
+        .blocknote-viewer-wrapper .math-inline {
+          display: inline-flex;
+          align-items: center;
+          min-height: 1.2em;
+          margin: 0 0.03rem;
+          padding: 0 0.06rem;
+          border-radius: 4px;
+          border: 1px solid transparent;
+          background: transparent;
+          vertical-align: baseline;
+        }
+
+        .blocknote-viewer-wrapper [data-inline-content-type="inlineMath"] .katex,
+        .blocknote-viewer-wrapper .math-inline .katex {
+          font-size: 1em;
+          color: #37352f;
+          line-height: 1.25;
+        }
+
+        .blocknote-viewer-wrapper [data-content-type="mathBlock"] {
+          margin: 0.95rem 0;
+          text-align: center;
+        }
+
+        .blocknote-viewer-wrapper [data-content-type="mathBlock"] .bn-editor-math-block,
+        .blocknote-viewer-wrapper [data-content-type="mathBlock"] .math-block {
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+          padding: 0.15rem 0;
+          text-align: center;
+        }
+
+        .blocknote-viewer-wrapper [data-content-type="mathBlock"] .bn-editor-math-block-affordance {
+          display: none !important;
+        }
+
+        .blocknote-viewer-wrapper [data-content-type="mathBlock"] .bn-editor-math-block-render .katex-display,
+        .blocknote-viewer-wrapper [data-content-type="mathBlock"] .math-block .katex-display {
+          margin: 0;
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
+
+        .blocknote-viewer-wrapper .math-empty {
+          color: #9b9a97;
+          font-size: 0.9em;
+          font-style: italic;
+        }
+
+        .blocknote-viewer-wrapper .math-fallback {
+          color: #b42318;
+          font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+          font-size: 0.9em;
+          white-space: pre-wrap;
+        }
         
         .blocknote-viewer-wrapper pre,
         .blocknote-viewer-wrapper [data-content-type="codeBlock"] {

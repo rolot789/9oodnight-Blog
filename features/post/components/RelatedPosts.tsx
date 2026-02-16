@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { getRelatedPosts } from "@/features/post/server/related-posts"
+import { DEFAULT_IMAGES } from "@/lib/constants"
 
 interface RelatedPostsProps {
   currentPostId: string
@@ -26,6 +27,10 @@ export default async function RelatedPosts({
     return null
   }
 
+  const hasCustomThumbnail = relatedPosts.some(
+    (post) => Boolean(post.image_url) && post.image_url !== DEFAULT_IMAGES.THUMBNAIL,
+  )
+
   return (
     <div className="mt-12">
       <h3 className="mb-6 text-sm font-bold tracking-widest text-[#080f18]">
@@ -39,11 +44,11 @@ export default async function RelatedPosts({
             className="group block overflow-hidden rounded border border-[#e5e5e5] bg-white transition-all hover:border-[#080f18] hover:shadow-md"
           >
             {/* Thumbnail */}
-            {post.image_url && post.image_url !== "/Thumbnail.jpg" && (
+            {hasCustomThumbnail && (
               <div className="relative h-32 w-full overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={post.image_url}
+                  src={post.image_url || DEFAULT_IMAGES.THUMBNAIL}
                   alt={post.title}
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />

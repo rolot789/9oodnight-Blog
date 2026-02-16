@@ -6,6 +6,7 @@
     "build": "next build --webpack",
     "build:turbo": "next build --turbopack",
     "dev": "next dev",
+    "postinstall": "patch-package",
     "start": "next start"
   },
   "dependencies": {
@@ -87,6 +88,7 @@
     "@types/node": "^25.0.10",
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
+    "patch-package": "^8.0.1",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",

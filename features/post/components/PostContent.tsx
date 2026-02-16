@@ -115,6 +115,55 @@ const postHtmlStyles = `
   .post-content li { margin: 0.25rem 0; }
   .post-content blockquote { border-left: 4px solid #6096ba; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic; }
   .post-content :not(pre) > code { background: #eef2f7; padding: 0.125rem 0.375rem; border-radius: 4px; font-family: monospace; font-size: 0.875rem; }
+  .post-content [data-inline-content-type="inlineMath"],
+  .post-content .math-inline {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.2em;
+    margin: 0 0.03rem;
+    padding: 0 0.06rem;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    background: transparent;
+    vertical-align: baseline;
+  }
+  .post-content [data-inline-content-type="inlineMath"] .katex,
+  .post-content .math-inline .katex {
+    font-size: 1em;
+    color: #37352f;
+    line-height: 1.25;
+  }
+  .post-content [data-content-type="mathBlock"] {
+    margin: 0.95rem 0;
+    text-align: center;
+  }
+  .post-content [data-content-type="mathBlock"] .math-block,
+  .post-content [data-content-type="mathBlock"] .bn-editor-math-block {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0.15rem 0;
+    text-align: center;
+  }
+  .post-content [data-content-type="mathBlock"] .bn-editor-math-block-affordance {
+    display: none !important;
+  }
+  .post-content [data-content-type="mathBlock"] .katex-display {
+    margin: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .post-content .math-empty {
+    color: #9b9a97;
+    font-size: 0.9em;
+    font-style: italic;
+  }
+  .post-content .math-fallback {
+    color: #b42318;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-size: 0.9em;
+    white-space: pre-wrap;
+  }
   .post-content .code-block-shell { position: relative; margin: 1rem 0; }
   .post-content pre,
   .post-content .code-block-shell pre {

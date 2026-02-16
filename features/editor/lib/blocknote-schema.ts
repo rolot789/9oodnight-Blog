@@ -1,5 +1,14 @@
-import { BlockNoteSchema, createCodeBlockSpec, defaultBlockSpecs } from "@blocknote/core"
+import {
+  BlockNoteSchema,
+  createBlockConfig,
+  createBlockSpec,
+  createCodeBlockSpec,
+  createInlineContentSpec,
+  defaultBlockSpecs,
+  defaultInlineContentSpecs,
+} from "@blocknote/core"
 import type { CodeBlockOptions } from "@blocknote/core"
+import katex from "katex"
 import { createHighlighter } from "shiki"
 
 const COPY_ICON = `
@@ -170,6 +179,11 @@ const codeBlockSpec: typeof baseCodeBlockSpec = {
     ...baseCodeBlockSpec.implementation,
     render(block, editor) {
       const rendered = baseCodeBlockSpec.implementation.render.call(this, block, editor)
+      const languageContainer = rendered.dom.firstChild
+      if (languageContainer instanceof HTMLElement) {
+        languageContainer.classList.add("bn-editor-code-language-container")
+      }
+
       const codeShell = document.createElement("div")
       codeShell.className = "bn-editor-code-shell"
       codeShell.append(rendered.dom)
@@ -242,9 +256,398 @@ const codeBlockSpec: typeof baseCodeBlockSpec = {
   },
 }
 
+const MATH_POPOVER_MIN_WIDTH = 264
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
+function renderMathHtml(latex: string, displayMode: boolean): string {
+  const normalizedLatex = latex.trim()
+
+  if (!normalizedLatex) {
+    return `<span class="math-empty">${displayMode ? "Empty equation" : "Empty math"}</span>`
+  }
+
+  try {
+    return katex.renderToString(normalizedLatex, {
+      displayMode,
+      throwOnError: false,
+      strict: "ignore",
+      output: "html",
+    })
+  } catch {
+    return `<span class="math-fallback">${escapeHtml(normalizedLatex)}</span>`
+  }
+}
+
+type MathPopoverOptions = {
+  anchor: HTMLElement
+  initialLatex: string
+  ariaLabel: string
+  allowMultiline?: boolean
+  onSave: (latex: string) => void
+}
+
+function createMathPopover({
+  anchor,
+  initialLatex,
+  ariaLabel,
+  allowMultiline = false,
+  onSave,
+}: MathPopoverOptions) {
+  const popover = document.createElement("div")
+  popover.className = "bn-editor-math-popover"
+  popover.contentEditable = "false"
+  popover.style.position = "fixed"
+  popover.style.minWidth = `${MATH_POPOVER_MIN_WIDTH}px`
+  popover.style.zIndex = "120"
+  popover.hidden = true
+
+  const row = document.createElement("div")
+  row.className = "bn-editor-math-popover-row"
+
+  const input = allowMultiline
+    ? document.createElement("textarea")
+    : document.createElement("input")
+  input.className = "bn-editor-math-popover-input"
+  input.setAttribute("aria-label", ariaLabel)
+  input.placeholder = String.raw`e.g. \int_C \vec{F} \cdot d\vec{s}`
+  input.value = initialLatex
+  if (input instanceof HTMLInputElement) {
+    input.type = "text"
+  } else {
+    input.rows = 1
+    input.wrap = "off"
+  }
+
+  const saveButton = document.createElement("button")
+  saveButton.type = "button"
+  saveButton.className = "bn-editor-math-popover-save"
+  saveButton.textContent = "완료"
+
+  row.append(input, saveButton)
+  popover.append(row)
+  document.body.append(popover)
+
+  let draftLatex = initialLatex
+  let isOpen = false
+
+  const positionPopover = () => {
+    const rect = anchor.getBoundingClientRect()
+    const maxWidth = Math.min(540, window.innerWidth - 24)
+    const left = Math.min(
+      Math.max(12, rect.left),
+      Math.max(12, window.innerWidth - maxWidth - 12),
+    )
+    const preferredTop = rect.bottom + 10
+    const top = Math.max(12, Math.min(preferredTop, window.innerHeight - 52))
+
+    popover.style.width = `${maxWidth}px`
+    popover.style.left = `${left}px`
+    popover.style.top = `${top}px`
+  }
+
+  const closePopover = () => {
+    if (!isOpen) return
+    isOpen = false
+    popover.hidden = true
+
+    document.removeEventListener("mousedown", handleOutsideMouseDown, true)
+    window.removeEventListener("resize", positionPopover)
+    window.removeEventListener("scroll", positionPopover, true)
+  }
+
+  const handleOutsideMouseDown = (event: MouseEvent) => {
+    const target = event.target as Node | null
+    if (!target) return
+    if (popover.contains(target) || anchor.contains(target)) return
+    closePopover()
+  }
+
+  const save = () => {
+    onSave(draftLatex)
+    closePopover()
+    anchor.focus()
+  }
+
+  const openPopover = (latex: string) => {
+    draftLatex = latex
+    input.value = latex
+
+    if (!isOpen) {
+      isOpen = true
+      popover.hidden = false
+
+      document.addEventListener("mousedown", handleOutsideMouseDown, true)
+      window.addEventListener("resize", positionPopover)
+      window.addEventListener("scroll", positionPopover, true)
+    }
+
+    positionPopover()
+    requestAnimationFrame(() => {
+      input.focus()
+      const cursor = input.value.length
+      input.selectionStart = cursor
+      input.selectionEnd = cursor
+    })
+  }
+
+  popover.addEventListener("mousedown", (event) => {
+    event.stopPropagation()
+  })
+
+  input.addEventListener("input", () => {
+    draftLatex = input.value
+  })
+
+  input.addEventListener("keydown", (event) => {
+    const keyboardEvent = event as KeyboardEvent
+    if (keyboardEvent.key === "Enter" && !(allowMultiline && keyboardEvent.shiftKey)) {
+      keyboardEvent.preventDefault()
+      save()
+      return
+    }
+
+    if (keyboardEvent.key === "Escape") {
+      keyboardEvent.preventDefault()
+      keyboardEvent.stopPropagation()
+      closePopover()
+      anchor.focus()
+    }
+  })
+
+  saveButton.addEventListener("click", save)
+
+  return {
+    open: openPopover,
+    destroy: () => {
+      closePopover()
+      popover.remove()
+    },
+  }
+}
+
+const inlineMathSpec = createInlineContentSpec(
+  {
+    type: "inlineMath" as const,
+    content: "none",
+    propSchema: {
+      latex: {
+        default: "",
+      },
+    },
+  },
+  {
+    render(inlineContent, updateInlineContent, editor) {
+      let currentLatex = inlineContent.props.latex || ""
+
+      const dom = document.createElement("span")
+      dom.className = "bn-editor-inline-math"
+      dom.contentEditable = "false"
+      dom.setAttribute("role", "button")
+      dom.setAttribute("tabindex", "0")
+      dom.setAttribute("aria-label", "Edit inline math")
+      dom.setAttribute("data-inline-content-type", "inlineMath")
+
+      const renderedMath = document.createElement("span")
+      renderedMath.className = "bn-editor-inline-math-render"
+      renderedMath.innerHTML = renderMathHtml(currentLatex, false)
+      dom.append(renderedMath)
+
+      if (!editor.isEditable) {
+        return { dom }
+      }
+
+      const updateRenderedMath = (latex: string) => {
+        currentLatex = latex
+        renderedMath.innerHTML = renderMathHtml(latex, false)
+      }
+
+      const popover = createMathPopover({
+        anchor: dom,
+        initialLatex: currentLatex,
+        ariaLabel: "Inline equation",
+        onSave: (latex) => {
+          updateInlineContent({
+            type: "inlineMath",
+            props: {
+              latex,
+            },
+          })
+          updateRenderedMath(latex)
+        },
+      })
+
+      const openPopover = (event: Event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        popover.open(currentLatex)
+      }
+
+      const handleKeyboardOpen = (event: KeyboardEvent) => {
+        if (event.key !== "Enter" && event.key !== " ") {
+          return
+        }
+        openPopover(event)
+      }
+
+      dom.addEventListener("click", openPopover)
+      dom.addEventListener("keydown", handleKeyboardOpen)
+
+      return {
+        dom,
+        destroy: () => {
+          dom.removeEventListener("click", openPopover)
+          dom.removeEventListener("keydown", handleKeyboardOpen)
+          popover.destroy()
+        },
+      }
+    },
+    toExternalHTML(inlineContent) {
+      const dom = document.createElement("span")
+      const latex = inlineContent.props.latex || ""
+
+      dom.className = "math-inline"
+      dom.setAttribute("data-inline-content-type", "inlineMath")
+      if (latex) {
+        dom.setAttribute("data-latex", latex)
+      }
+      dom.innerHTML = renderMathHtml(latex, false)
+
+      return { dom }
+    },
+  },
+)
+
+const createMathBlockConfig = createBlockConfig(
+  () =>
+    ({
+      type: "mathBlock" as const,
+      propSchema: {
+        latex: {
+          default: "",
+        },
+      },
+      content: "none",
+    }) as const,
+)
+
+const mathBlockSpec = createBlockSpec(createMathBlockConfig, {
+  render(block, editor) {
+    let currentLatex = block.props.latex || ""
+
+    const dom = document.createElement("div")
+    dom.className = "bn-editor-math-block"
+    dom.contentEditable = "false"
+    dom.setAttribute("role", "button")
+    dom.setAttribute("tabindex", "0")
+    dom.setAttribute("aria-label", "Edit math block")
+    dom.setAttribute("data-content-type", "mathBlock")
+
+    const renderedMath = document.createElement("div")
+    renderedMath.className = "bn-editor-math-block-render"
+    renderedMath.innerHTML = renderMathHtml(currentLatex, true)
+    dom.append(renderedMath)
+
+    if (!editor.isEditable) {
+      return { dom }
+    }
+
+    const affordance = document.createElement("div")
+    affordance.className = "bn-editor-math-block-affordance"
+    affordance.textContent = currentLatex.trim() ? "Click to edit equation" : "Click to add equation"
+    dom.append(affordance)
+
+    const updateRenderedMath = (latex: string) => {
+      currentLatex = latex
+      renderedMath.innerHTML = renderMathHtml(latex, true)
+      affordance.textContent = latex.trim() ? "Click to edit equation" : "Click to add equation"
+    }
+
+    const popover = createMathPopover({
+      anchor: dom,
+      initialLatex: currentLatex,
+      ariaLabel: "Display equation",
+      onSave: (latex) => {
+        editor.updateBlock(block.id, {
+          props: {
+            latex,
+          },
+        } as any)
+        updateRenderedMath(latex)
+      },
+    })
+
+    const openPopover = (event: Event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      popover.open(currentLatex)
+    }
+
+    const handleKeyboardOpen = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return
+      }
+      openPopover(event)
+    }
+
+    dom.addEventListener("click", openPopover)
+    dom.addEventListener("keydown", handleKeyboardOpen)
+
+    return {
+      dom,
+      destroy: () => {
+        dom.removeEventListener("click", openPopover)
+        dom.removeEventListener("keydown", handleKeyboardOpen)
+        popover.destroy()
+      },
+    }
+  },
+  toExternalHTML(block) {
+    const dom = document.createElement("div")
+    dom.className = "math-block"
+    const latex = block.props.latex || ""
+    dom.setAttribute("data-content-type", "mathBlock")
+    if (latex) {
+      dom.setAttribute("data-latex", latex)
+    }
+    dom.innerHTML = renderMathHtml(latex, true)
+    return { dom }
+  },
+})()
+
+const quoteSpecFromDefaults = defaultBlockSpecs.quote as any
+const quoteBlockSpec = (
+  typeof quoteSpecFromDefaults === "function"
+    ? quoteSpecFromDefaults()
+    : quoteSpecFromDefaults
+) as any
+const quoteBlockSpecWithSoftBreak = {
+  ...quoteBlockSpec,
+  implementation: {
+    ...quoteBlockSpec.implementation,
+    meta: {
+      ...quoteBlockSpec.implementation.meta,
+      hardBreakShortcut: "enter",
+    },
+  },
+}
+
 export const blockNoteSchema = BlockNoteSchema.create({
   blockSpecs: {
     ...defaultBlockSpecs,
     codeBlock: codeBlockSpec,
+    mathBlock: mathBlockSpec,
+    quote: quoteBlockSpecWithSoftBreak,
+  },
+  inlineContentSpecs: {
+    ...defaultInlineContentSpecs,
+    inlineMath: inlineMathSpec,
   },
 })

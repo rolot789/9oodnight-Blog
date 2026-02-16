@@ -1,10 +1,13 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
-import { useCreateBlockNote } from "@blocknote/react"
+import { SuggestionMenuController, useCreateBlockNote } from "@blocknote/react"
 import { BlockNoteView } from "@blocknote/mantine"
 import "@blocknote/mantine/style.css"
 import { blockNoteSchema } from "@/features/editor/lib/blocknote-schema"
+import { codeblockSafeEscapeExtension } from "@/features/editor/lib/codeblock-escape-extension"
+import { mathInputRulesExtension } from "@/features/editor/lib/math-input-rules-extension"
+import { getMathSlashMenuItems } from "@/features/editor/lib/math-slash-items"
 import { containsKaTeXMathDelimiters, normalizeKaTeXMarkdown } from "@/lib/shared/katex-markdown"
 
 interface BlockEditorProps {
@@ -42,6 +45,8 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
 
   const editor = useCreateBlockNote({
     schema: blockNoteSchema,
+    disableExtensions: ["OverrideEscape"],
+    extensions: [codeblockSafeEscapeExtension, mathInputRulesExtension],
     domAttributes: {
       editor: {
         class: "blocknote-editor",
@@ -105,6 +110,11 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
     }, CONTENT_SYNC_DEBOUNCE_MS)
   }, [emitContentChange])
 
+  const getSlashItems = useCallback(
+    async (query: string) => getMathSlashMenuItems(editor as any, query),
+    [editor],
+  )
+
   useEffect(() => {
     return () => {
       if (syncTimerRef.current) {
@@ -132,7 +142,13 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
         editable={editable}
         onChange={handleChange}
         theme="light"
-      />
+        slashMenu={false}
+      >
+        <SuggestionMenuController
+          triggerCharacter="/"
+          getItems={getSlashItems}
+        />
+      </BlockNoteView>
       <style jsx global>{`
         .blocknote-wrapper {
           --bn-colors-editor-background: #ffffff;
@@ -152,12 +168,12 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
         }
         
         .blocknote-wrapper .bn-editor {
-          padding: 8px 96px 64px;
+          padding: 8px 16px 64px;
           min-height: 560px;
           font-size: 16px;
           line-height: 1.75;
-          max-width: 900px;
-          margin: 0 auto;
+          max-width: none;
+          margin: 0;
         }
         
         .blocknote-wrapper .bn-block-content {
@@ -167,7 +183,7 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
 
         @media (max-width: 768px) {
           .blocknote-wrapper .bn-editor {
-            padding: 8px 20px 48px;
+            padding: 8px 16px 48px;
             min-height: 500px;
           }
         }
@@ -205,12 +221,14 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
         }
         
         .blocknote-wrapper [data-content-type="codeBlock"] {
+          position: relative;
+          z-index: 0;
           background-color: #f7f6f3 !important;
           color: #2f3437;
           border: 1px solid #ebebe8;
           border-radius: 6px;
           padding: 2.1rem 0 0.55rem;
-          overflow-x: auto;
+          overflow: hidden;
           font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
           font-size: 13px;
           line-height: 1.5;
@@ -223,6 +241,7 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
           border: 0;
           border-radius: 0;
           box-shadow: none;
+          overflow-x: auto;
         }
 
         .blocknote-wrapper .bn-block-content[data-content-type="codeBlock"] pre code {
@@ -232,6 +251,8 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
 
         .blocknote-wrapper .bn-editor-code-shell {
           position: relative;
+          isolation: isolate;
+          width: 100%;
         }
 
         .blocknote-wrapper .bn-editor-code-shell pre code {
@@ -242,15 +263,15 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
           display: block;
         }
 
-        .blocknote-wrapper .bn-editor-code-shell > div:first-child {
+        .blocknote-wrapper .bn-editor-code-language-container {
           position: absolute;
           top: 0.4rem;
           left: 0.5rem;
-          z-index: 4;
+          z-index: 2;
           pointer-events: none;
         }
 
-        .blocknote-wrapper .bn-editor-code-shell > div:first-child > select {
+        .blocknote-wrapper .bn-editor-code-language-container > select {
           pointer-events: auto;
           opacity: 1;
           height: 24px;
@@ -265,8 +286,8 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
           letter-spacing: 0.01em;
         }
 
-        .blocknote-wrapper .bn-editor-code-shell > div:first-child > select:focus,
-        .blocknote-wrapper .bn-editor-code-shell:hover > div:first-child > select {
+        .blocknote-wrapper .bn-editor-code-language-container > select:focus,
+        .blocknote-wrapper .bn-editor-code-shell:hover .bn-editor-code-language-container > select {
           border-color: #b9d3e6;
           outline: none;
         }
@@ -275,7 +296,7 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
           position: absolute;
           top: 0.4rem;
           right: 0.5rem;
-          z-index: 4;
+          z-index: 2;
           pointer-events: none;
         }
 
@@ -328,40 +349,227 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
           color: #b42318;
         }
         
+        /* Prevent doubled top spacing when heading wrappers/nodes both receive margin. */
         .blocknote-wrapper h1,
-        .blocknote-wrapper [data-level="1"] {
-          font-size: 2.5rem;
-          font-weight: 700;
-          margin-top: 1.15em;
-          margin-bottom: 0.2em;
-          line-height: 1.2;
-        }
-        
         .blocknote-wrapper h2,
-        .blocknote-wrapper [data-level="2"] {
-          font-size: 1.875rem;
-          font-weight: 600;
-          margin-top: 1.2em;
-          margin-bottom: 0.15em;
+        .blocknote-wrapper h3 {
+          margin: 0;
+        }
+
+        .blocknote-wrapper [data-content-type="heading"][data-level="1"] {
+          font-size: 2rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
           line-height: 1.3;
         }
         
-        .blocknote-wrapper h3,
-        .blocknote-wrapper [data-level="3"] {
+        .blocknote-wrapper [data-content-type="heading"][data-level="2"] {
           font-size: 1.5rem;
           font-weight: 600;
-          margin-top: 1.1em;
-          margin-bottom: 0.1em;
-          line-height: 1.3;
+          margin-top: 1.75rem;
+          margin-bottom: 0.5rem;
+          line-height: 1.35;
         }
         
-        .blocknote-wrapper blockquote,
+        .blocknote-wrapper [data-content-type="heading"][data-level="3"] {
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin-top: 1.5rem;
+          margin-bottom: 0.5rem;
+          line-height: 1.35;
+        }
+        
         .blocknote-wrapper [data-content-type="quote"] {
-          border-left: 4px solid #6096ba;
-          padding-left: 16px;
-          color: #6b7280;
-          margin: 16px 0;
+          color: #37352f;
+          margin: 0.45rem 0;
+          background: transparent;
+          font-family: inherit;
+          font-style: normal;
+          font-size: 1rem;
+          line-height: 1.5;
+        }
+
+        .blocknote-wrapper [data-content-type="quote"] blockquote {
+          border-left: 4px solid rgba(55, 53, 47, 0.16);
+          padding: 0.15rem 0 0.15rem 0.75rem;
+          margin: 0;
+          background: transparent;
           font-style: italic;
+          color: inherit;
+        }
+
+        .blocknote-wrapper [data-inline-content-type="inlineMath"] {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.2rem;
+          padding: 0 0.14rem;
+          margin: 0 0.03rem;
+          border-radius: 4px;
+          border: 1px solid transparent;
+          background: transparent;
+          vertical-align: baseline;
+          cursor: pointer;
+          transition: border-color 0.12s ease, background-color 0.12s ease;
+        }
+
+        .blocknote-wrapper [data-inline-content-type="inlineMath"]:hover,
+        .blocknote-wrapper [data-inline-content-type="inlineMath"]:focus-within {
+          border-color: #ebe9e5;
+          background: #f7f6f4;
+        }
+
+        .blocknote-wrapper .bn-editor-inline-math-render {
+          display: inline-flex;
+          align-items: center;
+          min-height: 1.24em;
+        }
+
+        .blocknote-wrapper .bn-editor-inline-math-render .katex {
+          font-size: 1em;
+          color: #37352f;
+          line-height: 1.25;
+        }
+
+        .blocknote-wrapper [data-content-type="mathBlock"] {
+          margin: 0.9rem 0;
+        }
+
+        .blocknote-wrapper .bn-editor-math-block {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid transparent;
+          border-radius: 6px;
+          background: transparent;
+          padding: 0.56rem 0.25rem;
+          min-height: 80px;
+          line-height: 1;
+          text-align: center;
+          cursor: pointer;
+          width: 100%;
+          transition: border-color 0.15s ease, background-color 0.15s ease;
+        }
+
+        .blocknote-wrapper .bn-editor-math-block:hover,
+        .blocknote-wrapper .bn-editor-math-block:focus-within {
+          border-color: #eeece8;
+          background: #faf9f8;
+        }
+
+        .blocknote-wrapper .bn-editor-math-block-render {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          overflow-x: auto;
+        }
+
+        .blocknote-wrapper .bn-editor-math-block-render .katex-display {
+          margin: 0 auto;
+          overflow-x: auto;
+          overflow-y: hidden;
+          padding: 0;
+        }
+
+        .blocknote-wrapper .bn-editor-math-block-affordance {
+          position: absolute;
+          left: 50%;
+          bottom: 0.18rem;
+          transform: translateX(-50%);
+          font-size: 11px;
+          color: #a4a39f;
+          opacity: 0;
+          line-height: 1;
+          white-space: nowrap;
+          pointer-events: none;
+          transition: opacity 0.14s ease;
+          text-transform: lowercase;
+        }
+
+        .blocknote-wrapper .bn-editor-math-block:hover .bn-editor-math-block-affordance,
+        .blocknote-wrapper .bn-editor-math-block:focus-within .bn-editor-math-block-affordance {
+          opacity: 1;
+        }
+
+        .bn-editor-math-popover {
+          background: #ffffff;
+          border: 1px solid #e8e6e2;
+          border-radius: 10px;
+          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+          padding: 0.4rem;
+          min-width: 320px;
+          width: min(540px, calc(100vw - 24px));
+        }
+
+        .bn-editor-math-popover-row {
+          display: flex;
+          align-items: center;
+          gap: 0.48rem;
+        }
+
+        .bn-editor-math-popover-input {
+          flex: 1;
+          min-width: 0;
+          width: 100%;
+          border: 1px solid #eceae5;
+          border-radius: 7px;
+          background: #faf9f7;
+          color: #37352f;
+          font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+          font-size: 13px;
+          line-height: 1.3;
+          padding: 0 0.58rem;
+          resize: none;
+          height: 30px;
+          min-height: 30px;
+          max-height: 30px;
+          overflow: hidden;
+          white-space: nowrap;
+          transition: border-color 0.14s ease, background-color 0.14s ease, box-shadow 0.14s ease;
+        }
+
+        .bn-editor-math-popover-input:focus {
+          outline: none;
+          border-color: #c9d8e5;
+          background: #ffffff;
+          box-shadow: 0 0 0 2px rgba(96, 150, 186, 0.12);
+        }
+
+        .bn-editor-math-popover-save {
+          flex-shrink: 0;
+          border: 1px solid #d9d7d2;
+          border-radius: 7px;
+          height: 30px;
+          padding: 0 0.76rem;
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1;
+          background: #ffffff;
+          color: #595753;
+          cursor: pointer;
+          transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+        }
+
+        .bn-editor-math-popover-save:hover {
+          background: #f4f3f1;
+          border-color: #cfcac2;
+          color: #2f2e2a;
+        }
+
+        .blocknote-wrapper .math-empty {
+          color: #9b9a97;
+          font-size: 0.9em;
+          font-style: italic;
+        }
+
+        .blocknote-wrapper .math-fallback {
+          color: #b42318;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          font-size: 0.9em;
+          white-space: pre-wrap;
         }
         
         .blocknote-wrapper ul, 

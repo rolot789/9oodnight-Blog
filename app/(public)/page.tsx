@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { getHomePageData } from "@/features/post/server/home"
 import CreateFromMarkdownDialog from "@/components/create/CreateFromMarkdownDialog"
+import ExcerptRenderer from "@/features/post/components/ExcerptRenderer"
 
 const CATEGORIES = ["All", "Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
 
@@ -140,7 +141,11 @@ export default async function Page({ searchParams }: PageProps) {
                       </div>
                       <Link href={`/post/${post.id}`} className="block group">
                         <h2 className="mb-3 text-lg font-light tracking-wide text-[#080f18] transition-colors group-hover:text-[#6096ba]">{post.title.toUpperCase()}</h2>
-                        <p className="text-sm leading-relaxed text-[#8b8c89] line-clamp-3">{post.excerpt}</p>
+                        <ExcerptRenderer
+                          content={post.excerpt || ""}
+                          variant="card"
+                          className="line-clamp-3"
+                        />
                       </Link>
                     </div>
                     <div className="mt-4 flex items-center justify-between border-t border-[#e5e5e5] pt-4">
