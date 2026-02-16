@@ -1,5 +1,6 @@
 export interface Post {
   id: string
+  slug: string
   title: string
   category: string
   excerpt: string
@@ -22,6 +23,7 @@ export interface SeriesMembership {
 
 export interface SeriesItem {
   postId: string
+  slug: string
   title: string
   position: number | null
 }
@@ -47,10 +49,12 @@ export interface Todo {
   user_id?: string
   linked_post_id?: string | null
   linked_post_title?: string | null
+  linked_post_slug?: string | null
 }
 
 export interface PostOption {
   id: string
+  slug: string
   title: string
   created_at: string
 }

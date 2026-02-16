@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { getRelatedPosts } from "@/features/post/server/related-posts"
 import { DEFAULT_IMAGES } from "@/lib/constants"
+import { toPostPath } from "@/lib/shared/slug"
 
 interface RelatedPostsProps {
   currentPostId: string
@@ -40,7 +41,7 @@ export default async function RelatedPosts({
         {relatedPosts.map((post) => (
           <Link
             key={post.id}
-            href={`/post/${post.id}`}
+            href={toPostPath(post.slug || post.id)}
             className="group block overflow-hidden rounded border border-[#e5e5e5] bg-white transition-all hover:border-[#080f18] hover:shadow-md"
           >
             {/* Thumbnail */}

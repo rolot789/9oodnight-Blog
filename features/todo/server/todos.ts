@@ -17,6 +17,7 @@ interface TodoPostLinkRow {
 interface PostTitleRow {
   id: string
   title: string
+  slug: string
 }
 
 function isMissingRelationError(error: unknown): boolean {
@@ -55,14 +56,16 @@ async function attachPostLinks(todos: Todo[]): Promise<Todo[]> {
   const postIds = Array.from(new Set(links.map((link) => link.post_id)))
   const { data: postsRaw, error: postsError } = await supabase
     .from("posts")
-    .select("id, title")
+    .select("id, title, slug")
     .in("id", postIds)
 
   if (postsError) {
     throw postsError
   }
 
-  const postsById = new Map(((postsRaw as PostTitleRow[] | null) || []).map((post) => [post.id, post.title]))
+  const postsById = new Map(
+    ((postsRaw as PostTitleRow[] | null) || []).map((post) => [post.id, post])
+  )
   const postIdByTodoId = new Map(links.map((link) => [link.todo_id, link.post_id]))
 
   return todos.map((todo) => {
@@ -70,7 +73,8 @@ async function attachPostLinks(todos: Todo[]): Promise<Todo[]> {
     return {
       ...todo,
       linked_post_id: linkedPostId,
-      linked_post_title: linkedPostId ? postsById.get(linkedPostId) ?? null : null,
+      linked_post_title: linkedPostId ? postsById.get(linkedPostId)?.title ?? null : null,
+      linked_post_slug: linkedPostId ? postsById.get(linkedPostId)?.slug ?? null : null,
     }
   })
 }
@@ -286,8 +290,21 @@ export async function listTodosByPost(postId: string, limit = 10): Promise<Todo[
     throw todosError
   }
 
+  const { data: postRaw, error: postError } = await supabase
+    .from("posts")
+    .select("slug")
+    .eq("id", postId)
+    .single()
+
+  if (postError && postError.code !== "PGRST116") {
+    throw postError
+  }
+
+  const postSlug = (postRaw as { slug?: string } | null)?.slug ?? null
+
   return ((todosRaw as Todo[] | null) || []).map((todo) => ({
     ...todo,
     linked_post_id: postId,
+    linked_post_slug: postSlug,
   }))
 }

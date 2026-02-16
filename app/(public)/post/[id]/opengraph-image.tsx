@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og"
-import { getPostById } from "@/features/post/server/post"
+import { getPostByIdentifier } from "@/features/post/server/post"
 import { siteConfig } from "@/lib/seo"
 
 export const runtime = "edge"
@@ -15,8 +15,8 @@ interface Props {
 }
 
 export default async function PostOpenGraphImage({ params }: Props) {
-  const { id } = await params
-  const post = await getPostById(id)
+  const { id: identifier } = await params
+  const post = await getPostByIdentifier(identifier)
 
   const title = post?.title ?? "Post Not Found"
   const category = post?.category ?? "Blog"

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import type { SeriesContext } from "@/lib/types"
+import { toPostPath } from "@/lib/shared/slug"
 
 interface SeriesNavigatorProps {
   series: SeriesContext
@@ -17,7 +18,7 @@ export default function SeriesNavigator({ series }: SeriesNavigatorProps) {
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         {series.previous ? (
           <Link
-            href={`/post/${series.previous.postId}`}
+            href={toPostPath(series.previous.slug || series.previous.postId)}
             className="rounded border border-[#e5e5e5] bg-[#fafbfc] px-4 py-3 text-sm text-[#080f18] transition-colors hover:border-[#080f18]"
           >
             <span className="block text-[10px] tracking-wider text-[#8b8c89]">PREVIOUS</span>
@@ -32,7 +33,7 @@ export default function SeriesNavigator({ series }: SeriesNavigatorProps) {
 
         {series.next ? (
           <Link
-            href={`/post/${series.next.postId}`}
+            href={toPostPath(series.next.slug || series.next.postId)}
             className="rounded border border-[#e5e5e5] bg-[#fafbfc] px-4 py-3 text-sm text-[#080f18] transition-colors hover:border-[#080f18]"
           >
             <span className="block text-[10px] tracking-wider text-[#8b8c89]">NEXT</span>

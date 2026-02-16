@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { getHomePageData } from "@/features/post/server/home"
 import CreateFromMarkdownDialog from "@/components/create/CreateFromMarkdownDialog"
 import ExcerptRenderer from "@/features/post/components/ExcerptRenderer"
+import { toPostPath } from "@/lib/shared/slug"
 
 const CATEGORIES = ["All", "Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
 
@@ -114,10 +115,13 @@ export default async function Page({ searchParams }: PageProps) {
 
             {/* Blog Posts List */}
             <div className="space-y-8">
-              {blogPosts.map((post) => (
-                <article key={post.id} className="flex flex-col gap-6 bg-white p-6 shadow-sm md:flex-row transition-shadow hover:shadow-md">
+              {blogPosts.map((post) => {
+                const postPath = toPostPath(post.slug || post.id)
+
+                return (
+                  <article key={post.id} className="flex flex-col gap-6 bg-white p-6 shadow-sm md:flex-row transition-shadow hover:shadow-md">
                   <div className="relative h-[220px] w-full flex-shrink-0 overflow-hidden md:h-auto md:min-h-[180px] md:w-[260px]">
-                    <Link href={`/post/${post.id}`} className="absolute inset-0 h-full w-full">
+                    <Link href={postPath} className="absolute inset-0 h-full w-full">
                       <img
                         src={post.image_url || "/placeholder.svg?height=200&width=280&query=abstract"}
                         alt={post.title}
@@ -139,7 +143,7 @@ export default async function Page({ searchParams }: PageProps) {
                           </Link>
                         ))}
                       </div>
-                      <Link href={`/post/${post.id}`} className="block group">
+                      <Link href={postPath} className="block group">
                         <h2 className="mb-3 text-lg font-light tracking-wide text-[#080f18] transition-colors group-hover:text-[#6096ba]">{post.title.toUpperCase()}</h2>
                         <ExcerptRenderer
                           content={post.excerpt || ""}
@@ -172,8 +176,9 @@ export default async function Page({ searchParams }: PageProps) {
                       )}
                     </div>
                   </div>
-                </article>
-              ))}
+                    </article>
+                  )
+              })}
               {blogPosts.length === 0 && (
                 <div className="py-20 text-center border border-dashed border-[#e5e5e5]">
                   <p className="text-sm text-[#8b8c89] mb-2">No posts found in {selectedCategory}.</p>

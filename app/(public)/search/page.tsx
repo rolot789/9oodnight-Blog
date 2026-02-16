@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
+import { toPostPath } from "@/lib/shared/slug"
 import {
   Search as SearchIcon,
   CornerDownLeft,
@@ -703,50 +704,54 @@ function SearchContent() {
               <p className="text-[#8b8c89]">No results found for "{query || selectedTags.map((tag) => `#${tag}`).join(" ")}"</p>
             </div>
           ) : (
-            results.items.map((post: SearchPostResult) => (
-              <article key={post.id} className="group rounded border border-[#e5e5e5] bg-white p-8 shadow-sm transition-all hover:border-[#080f18]">
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
-                    {post.category}
-                  </span>
-                  {post.tags && post.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-[10px] font-normal tracking-wider">
-                      {tag}
-                    </Badge>
-                  ))}
-                  <span className="ml-2 text-[11px] text-[#8b8c89]">
-                    {new Date(post.created_at).toLocaleDateString("en-US", {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
+              results.items.map((post: SearchPostResult) => {
+              const postPath = toPostPath(post.slug || post.id)
 
-                <Link href={`/post/${post.id}`} className="block">
-                  <h2 className="mb-3 text-xl font-medium text-[#080f18] transition-colors group-hover:text-[#6096ba]">
-                    <HighlightedText text={post.title} highlight={query} />
-                  </h2>
-                </Link>
+              return (
+                <article key={post.id} className="group rounded border border-[#e5e5e5] bg-white p-8 shadow-sm transition-all hover:border-[#080f18]">
+                  <div className="mb-4 flex flex-wrap items-center gap-2">
+                    <span className="border border-[#6096ba] px-2 py-0.5 text-[10px] font-normal tracking-wider text-[#6096ba]">
+                      {post.category}
+                    </span>
+                    {post.tags && post.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-[10px] font-normal tracking-wider">
+                        {tag}
+                      </Badge>
+                    ))}
+                    <span className="ml-2 text-[11px] text-[#8b8c89]">
+                      {new Date(post.created_at).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
 
-                <p className="mb-4 text-sm leading-relaxed text-[#4a4a4a]">
-                  <HighlightedText
-                    text={getRelevantSnippet(post.content, query)}
-                    highlight={query}
-                  />
-                </p>
+                  <Link href={postPath} className="block">
+                    <h2 className="mb-3 text-xl font-medium text-[#080f18] transition-colors group-hover:text-[#6096ba]">
+                      <HighlightedText text={post.title} highlight={query} />
+                    </h2>
+                  </Link>
 
-                <Link
-                  href={`/post/${post.id}`}
-                  className="inline-flex items-center text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
-                >
-                  READ MORE
-                  <svg className="ml-2 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                  </svg>
-                </Link>
-              </article>
-            ))
+                  <p className="mb-4 text-sm leading-relaxed text-[#4a4a4a]">
+                    <HighlightedText
+                      text={getRelevantSnippet(post.content, query)}
+                      highlight={query}
+                    />
+                  </p>
+
+                  <Link
+                    href={postPath}
+                    className="inline-flex items-center text-xs tracking-wider text-[#8b8c89] transition-colors hover:text-[#080f18]"
+                  >
+                    READ MORE
+                    <svg className="ml-2 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </Link>
+                </article>
+              )
+            })
           )}
         </div>
 

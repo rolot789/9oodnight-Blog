@@ -15,6 +15,8 @@ import TableOfContents from "@/features/post/components/TableOfContents"
 import { POST_CATEGORIES as categories, DEFAULT_IMAGES } from "@/lib/constants"
 import { useLocalDraft } from "@/features/editor/hooks/useLocalDraft"
 import { MARKDOWN_IMPORT_STORAGE_KEY, parseMarkdownImportPayload } from "@/lib/shared/markdown-import"
+import { toSlug } from "@/lib/shared/slug"
+import { toPostPath } from "@/lib/shared/slug"
 
 const RealtimePreview = dynamic(() => import("@/features/editor/components/RealtimePreview"), {
   ssr: false,
@@ -40,6 +42,7 @@ interface DraftPayload {
   category: string
   excerpt: string
   content: string
+  slug: string
   tags: string[]
   imageUrl: string
   featuredImagePath: string | null
@@ -78,6 +81,7 @@ function EditFormContent() {
   const [category, setCategory] = useState("")
   const [excerpt, setExcerpt] = useState("")
   const [content, setContent] = useState("")
+  const [slug, setSlug] = useState("")
   const [tags, setTags] = useState<string[]>([])
   const [currentTag, setCurrentTag] = useState("")
   const [seriesTitle, setSeriesTitle] = useState("")
@@ -109,6 +113,7 @@ function EditFormContent() {
       category,
       excerpt,
       content,
+      slug,
       tags,
       imageUrl,
       featuredImagePath,
@@ -122,6 +127,7 @@ function EditFormContent() {
       category,
       excerpt,
       content,
+      slug,
       tags,
       imageUrl,
       featuredImagePath,
@@ -136,6 +142,7 @@ function EditFormContent() {
     setTitle(draft.title || "")
     setCategory(draft.category || "")
     setExcerpt(draft.excerpt || "")
+    setSlug(draft.slug || "")
     setContent(draft.content || "")
     setTags(draft.tags || [])
     setImageUrl(draft.imageUrl || DEFAULT_IMAGES.THUMBNAIL)
@@ -178,6 +185,7 @@ function EditFormContent() {
           setCategory(data.category)
           setExcerpt(data.excerpt)
           setContent(data.content)
+          setSlug(data.slug || toSlug(data.title || ""))
           setTags(data.tags || [])
           setImageUrl(data.image_url || DEFAULT_IMAGES.THUMBNAIL)
           setFeaturedImagePath(data.featured_image_path || null)
@@ -208,6 +216,39 @@ function EditFormContent() {
   }, [postId, isEditMode, supabase, router])
 
   const isEditorReady = !isEditMode || !isPostLoading
+
+  const buildUniqueSlug = useCallback(async (inputSlug: string): Promise<string> => {
+    const baseSlug = inputSlug || "untitled"
+    let candidate = baseSlug
+
+    for (let i = 1; i <= 20; i += 1) {
+      const query = supabase
+        .from("posts")
+        .select("id")
+        .eq("slug", candidate)
+
+      const { data: slugRows, error } = await query
+        .order("id")
+        .limit(10)
+
+      if (error) {
+        throw error
+      }
+
+      const conflictingIds = ((slugRows as { id: string }[] | null) || [])
+        .map((row) => row.id)
+        .filter(Boolean)
+        .filter((id) => id !== postId)
+
+      if (conflictingIds.length === 0) {
+        return candidate
+      }
+
+      candidate = `${baseSlug}-${i + 1}`
+    }
+
+    return `${baseSlug}-${Date.now()}`
+  }, [postId, supabase])
 
   const {
     recoverableDraft,
@@ -495,12 +536,21 @@ function EditFormContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    let nextSlug = toSlug(title) || "untitled"
+    try {
+      nextSlug = await buildUniqueSlug(nextSlug)
+    } catch (error) {
+      setIsSubmitting(false)
+      toast.error("Failed to generate unique slug.")
+      return
+    }
 
     const postData = {
       title,
       category,
       excerpt,
       content,
+      slug: nextSlug,
       tags,
       image_url: imageUrl || DEFAULT_IMAGES.THUMBNAIL,
       featured_image_path: featuredImagePath,
@@ -510,6 +560,7 @@ function EditFormContent() {
 
     let error
     let savedPostId = postId
+    setSlug(nextSlug)
 
     if (isEditMode) {
       const { data: updatedRow, error: updateError } = await supabase
@@ -575,8 +626,8 @@ function EditFormContent() {
       clearDraft()
 
       toast.success(`Post ${isEditMode ? "updated" : "published"} successfully!`)
-      if (isEditMode && savedPostId) {
-        router.push(`/post/${savedPostId}`)
+      if (savedPostId) {
+        router.push(toPostPath(nextSlug || savedPostId))
         router.refresh()
       } else {
         router.push("/")

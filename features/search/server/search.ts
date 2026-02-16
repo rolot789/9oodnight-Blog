@@ -4,7 +4,7 @@ import { normalizeSearchQuery } from "@/lib/shared/security"
 
 export type SearchPostResult = Pick<
   Post,
-  "id" | "title" | "category" | "tags" | "created_at" | "content"
+  "id" | "slug" | "title" | "category" | "tags" | "created_at" | "content"
 >
 
 export type SearchSort = "relevance" | "latest"
@@ -285,7 +285,7 @@ export async function searchPosts(params: SearchPostsParams): Promise<SearchPost
   const supabase = await createClient()
   let queryBuilder = supabase
     .from("posts")
-    .select("id, title, category, tags, created_at, content")
+    .select("id, slug, title, category, tags, created_at, content")
 
   if (params.from) {
     queryBuilder = queryBuilder.gte("created_at", `${params.from}T00:00:00.000Z`)

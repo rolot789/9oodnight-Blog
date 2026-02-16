@@ -10,7 +10,8 @@ import SeriesNavigator from "@/features/post/components/SeriesNavigator"
 import ExcerptRenderer from "@/features/post/components/ExcerptRenderer"
 import { generatePostMetadata, generateArticleJsonLd, generateBreadcrumbJsonLd, siteConfig } from "@/lib/seo"
 import type { Metadata } from "next"
-import { getPostById, getPostPageData } from "@/features/post/server/post"
+import { toPostPath } from "@/lib/shared/slug"
+import { getPostByIdentifier, getPostPageData } from "@/features/post/server/post"
 import { serializeJsonLd } from "@/lib/shared/security"
 import { STATUS_LABELS } from "@/lib/constants"
 
@@ -22,8 +23,8 @@ interface PostPageProps {
 
 // 동적 메타데이터 생성
 export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
-  const { id } = await params
-  const post = await getPostById(id)
+  const { id: identifier } = await params
+  const post = await getPostByIdentifier(identifier)
 
   if (!post) {
     return {
@@ -35,8 +36,8 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
 }
 
 export default async function PostPage({ params }: PostPageProps) {
-  const { id } = await params
-  const { user, post, seriesContext, linkedTodos } = await getPostPageData(id)
+  const { id: identifier } = await params
+  const { user, post, seriesContext, linkedTodos } = await getPostPageData(identifier)
   const nonce = (await headers()).get("x-nonce") ?? undefined
 
   if (!post) {
@@ -45,10 +46,11 @@ export default async function PostPage({ params }: PostPageProps) {
 
   // JSON-LD 구조화된 데이터
   const articleJsonLd = generateArticleJsonLd(post)
+  const postPath = toPostPath(post.slug || post.id)
   const breadcrumbJsonLd = generateBreadcrumbJsonLd([
     { name: "Home", url: siteConfig.url },
     { name: post.category, url: `${siteConfig.url}/?category=${encodeURIComponent(post.category)}` },
-    { name: post.title, url: `${siteConfig.url}/post/${post.id}` },
+    { name: post.title, url: `${siteConfig.url}${postPath}` },
   ])
 
   return (

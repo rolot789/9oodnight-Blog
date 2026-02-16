@@ -1,6 +1,7 @@
 import { siteConfig } from "@/lib/seo"
 import { createClient } from "@/lib/supabase/server"
 import type { Post } from "@/lib/types"
+import { toPostPath } from "@/lib/shared/slug"
 
 export async function generateFeedXml(): Promise<string> {
   const supabase = await createClient()
@@ -31,8 +32,8 @@ export async function generateFeedXml(): Promise<string> {
         (post) => `
     <item>
       <title>${escapeXml(post.title)}</title>
-      <link>${siteConfig.url}/post/${post.id}</link>
-      <guid isPermaLink="true">${siteConfig.url}/post/${post.id}</guid>
+      <link>${siteConfig.url}${toPostPath(post.slug || post.id)}</link>
+      <guid isPermaLink="true">${siteConfig.url}${toPostPath(post.slug || post.id)}</guid>
       <description>${escapeXml(post.excerpt || "")}</description>
       <category>${escapeXml(post.category)}</category>
       <pubDate>${new Date(post.created_at).toUTCString()}</pubDate>

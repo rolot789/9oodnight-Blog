@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import type { Post } from "../types"
+import { toPostUrl } from "@/lib/shared/slug"
 
 // 사이트 기본 설정
 export const siteConfig = {
@@ -74,10 +75,15 @@ export const defaultMetadata: Metadata = {
   },
 }
 
+function getPostIdentifier(post: Pick<Post, "id" | "slug">): string {
+  return post.slug || post.id
+}
+
 // 포스트별 동적 메타데이터 생성
 export function generatePostMetadata(post: Post): Metadata {
-  const postUrl = `${siteConfig.url}/post/${post.id}`
-  const ogImage = `${siteConfig.url}/post/${post.id}/opengraph-image`
+  const postIdentifier = getPostIdentifier(post)
+  const postUrl = toPostUrl(siteConfig.url, postIdentifier)
+  const ogImage = `${toPostUrl(siteConfig.url, postIdentifier)}/opengraph-image`
 
   // 본문에서 요약 추출 (첫 160자)
   const description = post.excerpt || extractDescription(post.content, 160)
@@ -126,6 +132,8 @@ export function generatePostMetadata(post: Post): Metadata {
 
 // JSON-LD 구조화된 데이터 생성 (Article 스키마)
 export function generateArticleJsonLd(post: Post) {
+  const postIdentifier = getPostIdentifier(post)
+
   return {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -150,7 +158,7 @@ export function generateArticleJsonLd(post: Post) {
     },
     mainEntityOfPage: {
       "@type": "WebPage",
-      "@id": `${siteConfig.url}/post/${post.id}`,
+      "@id": toPostUrl(siteConfig.url, postIdentifier),
     },
     articleSection: post.category,
     keywords: post.tags?.join(", "),

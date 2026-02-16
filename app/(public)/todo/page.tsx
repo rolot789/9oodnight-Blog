@@ -17,6 +17,7 @@ import { PostOption, Todo, TodoStatus } from "@/lib/types"
 import { TODO_CATEGORIES as CATEGORIES, STATUSES, STATUS_LABELS, CATEGORY_COLORS } from "@/lib/constants"
 import type { ApiResponse } from "@/lib/shared/api-response"
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client"
+import { toPostPath } from "@/lib/shared/slug"
 
 const PAGE_SIZE = 20
 const NO_POST_LINK = "__none__"
@@ -379,6 +380,15 @@ export default function TodoPage() {
 
   // NOTE: filteredTodos is now just 'todos' because filtering happens on server
   const filteredTodos = todos;
+  const getTodoPostPath = (todo: Todo) => {
+    if (!todo.linked_post_id) {
+      return null
+    }
+
+    const linkedPost = postOptions.find((post) => post.id === todo.linked_post_id)
+    const identifier = linkedPost?.slug || todo.linked_post_slug || todo.linked_post_id
+    return toPostPath(identifier)
+  }
 
   if (!isLoaded && page === 0) {
     return (
@@ -669,7 +679,7 @@ export default function TodoPage() {
 
                                         {todo.linked_post_id && (
                                           <Link
-                                            href={`/post/${todo.linked_post_id}`}
+                                            href={getTodoPostPath(todo) || toPostPath(todo.linked_post_id)}
                                             className="text-[10px] tracking-wider text-[#6096ba] hover:text-[#4a7a9e] underline"
                                           >
                                             {todo.linked_post_title || "View post"}
@@ -780,7 +790,7 @@ export default function TodoPage() {
                                         </span>
                                         {todo.linked_post_id && (
                                           <Link
-                                            href={`/post/${todo.linked_post_id}`}
+                                            href={getTodoPostPath(todo) || toPostPath(todo.linked_post_id)}
                                             className="text-[9px] tracking-wider text-[#6096ba] hover:text-[#4a7a9e] underline mr-2"
                                           >
                                             POST

@@ -12,7 +12,7 @@ export async function listPostOptions(input: {
 
   let query = supabase
     .from("posts")
-    .select("id, title, created_at")
+    .select("id, slug, title, created_at")
     .order("created_at", { ascending: false })
     .limit(limit)
 

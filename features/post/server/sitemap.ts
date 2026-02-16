@@ -2,15 +2,16 @@ import { CATEGORIES } from "@/lib/constants"
 import { siteConfig } from "@/lib/seo"
 import { createClient } from "@/lib/supabase/server"
 import type { Post } from "@/lib/types"
+import { toPostPath } from "@/lib/shared/slug"
 
 export async function generateSitemapXml(): Promise<string> {
   const supabase = await createClient()
   const { data: posts } = await supabase
     .from("posts")
-    .select("id, updated_at")
+    .select("id, slug, updated_at")
     .order("updated_at", { ascending: false })
 
-  const blogPosts = (posts as Pick<Post, "id" | "updated_at">[]) || []
+  const blogPosts = (posts as Pick<Post, "id" | "slug" | "updated_at">[]) || []
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -39,7 +40,7 @@ export async function generateSitemapXml(): Promise<string> {
     .map(
       (post) => `
   <url>
-    <loc>${siteConfig.url}/post/${post.id}</loc>
+    <loc>${siteConfig.url}${toPostPath(post.slug || post.id)}</loc>
     <lastmod>${new Date(post.updated_at).toISOString()}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>

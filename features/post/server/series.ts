@@ -11,6 +11,7 @@ interface SeriesRow {
 interface SeriesPostRow {
   id: string
   title: string
+  slug: string
   created_at: string
 }
 
@@ -159,7 +160,7 @@ export async function getSeriesContext(postId: string): Promise<SeriesContext | 
   const ids = seriesRows.map((row) => row.post_id)
   const { data: postsRaw, error: postsError } = await supabase
     .from("posts")
-    .select("id, title, created_at")
+    .select("id, title, slug, created_at")
     .in("id", ids)
 
   if (postsError) {
@@ -189,14 +190,16 @@ export async function getSeriesContext(postId: string): Promise<SeriesContext | 
     index: index + 1,
     previous: previousRow
       ? {
-          postId: previousRow.post_id,
-          title: postsById.get(previousRow.post_id)?.title || "Untitled",
-          position: previousRow.position,
-        }
+        postId: previousRow.post_id,
+        slug: postsById.get(previousRow.post_id)?.slug || "",
+        title: postsById.get(previousRow.post_id)?.title || "Untitled",
+        position: previousRow.position,
+      }
       : null,
     next: nextRow
       ? {
           postId: nextRow.post_id,
+          slug: postsById.get(nextRow.post_id)?.slug || "",
           title: postsById.get(nextRow.post_id)?.title || "Untitled",
           position: nextRow.position,
         }

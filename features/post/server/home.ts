@@ -4,7 +4,7 @@ import type { Post } from "@/lib/types"
 
 type HomePost = Pick<
   Post,
-  "id" | "title" | "category" | "excerpt" | "image_url" | "tags" | "created_at" | "read_time"
+  "id" | "slug" | "title" | "category" | "excerpt" | "image_url" | "tags" | "created_at" | "read_time"
 >
 
 interface HomePageData {
@@ -34,7 +34,7 @@ export async function getHomePageData({
 
     let query = supabase
       .from("posts")
-      .select("id, title, category, excerpt, image_url, tags, created_at, read_time")
+      .select("id, slug, title, category, excerpt, image_url, tags, created_at, read_time")
       .order("created_at", { ascending: false })
 
     if (selectedCategory !== "All") {
