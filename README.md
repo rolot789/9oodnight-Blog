@@ -6,16 +6,17 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth%20%2B%20Storage-3ecf8e?style=flat-square&logo=supabase)](https://supabase.com/)
 
 수학과 코드의 교차점을 기록하는 개인 기술 블로그입니다.  
-이 프로젝트는 **Next.js App Router + Supabase** 기반으로, 콘텐츠 작성부터 검색/SEO/파일관리까지 하나의 워크플로우로 구성되어 있습니다.
+이 프로젝트는 **Next.js App Router + Supabase** 기반으로, 콘텐츠 작성부터 검색/SEO/미디어 관리까지 하나의 워크플로우로 구성되어 있습니다.
 
 ---
 
 ## 1) 블로그 구성 개요
 
 ### 사용자 영역
-- 홈: 최신 글 목록, 카테고리 기반 탐색
-- 글 상세: Markdown/MDX 본문 렌더링, 수식/코드/목차/첨부파일
+- 홈: 최신 글 목록, 카테고리 필터, 페이지네이션/필터 기반 탐색
+- 글 상세: Markdown/MDX 본문 렌더링, 수식/코드/목차, 첨부파일
 - 검색: 제목/본문/태그 통합 검색, 하이라이팅 스니펫
+- TODO: 공개용 간단 할 일 목록 페이지
 
 ### 관리자(인증) 영역
 - 에디터: 신규 작성/기존 글 수정
@@ -23,7 +24,7 @@
 - 미디어 관리: 대표 이미지, 첨부파일 업로드/정리
 
 ### 시스템 영역
-- API: 검색, TODO, 세션조회, 로그아웃
+- API: posts, search, todos, auth/session, auth/signout
 - 보안: CSP nonce, 요청 ID 추적(`x-request-id`), 표준 응답 포맷
 - SEO: `sitemap.xml`, `feed.xml`, Open Graph 이미지 자동 생성
 
@@ -33,7 +34,7 @@
 
 ### Home & 카테고리 필터
 - 홈(`/(public)/page.tsx`)에서 게시글 목록을 렌더링합니다.
-- 카테고리 필터를 통해 관심 주제만 빠르게 탐색할 수 있습니다.
+- 카테고리 필터로 관심 주제만 빠르게 탐색할 수 있습니다.
 - 카드 단위로 읽기시간/카테고리/작성일 메타데이터를 노출합니다.
 
 ### 글 상세 페이지
@@ -62,7 +63,13 @@ app/
   (public)/                 # 홈, 포스트, 검색, TODO
   (editor)/                 # 작성/수정/미리보기
   (auth)/                   # 로그인/콜백/로그아웃
-  api/                      # search, todos, auth/session, auth/signout
+  api/
+    posts/                  # 게시글 목록/생성
+    search/                 # 통합 검색 API
+    todos/                  # TODO API (+ [id])
+    auth/session             # 세션 조회
+    auth/signout             # 세션 종료
+    
 features/
   post/search/todo/editor
     server/                 # 도메인 서버 로직(쿼리/검증/비즈니스)
@@ -72,10 +79,8 @@ lib/
   server/                   # 서버 전용(인증, observability)
   supabase/                 # Supabase client/server 생성기
 proxy.ts                    # 보안 헤더, nonce, request-id 전달
-docs/                       # 운영 문서(보안, 에러 규약, 트리 문서)
+docs/                       # 운영 문서(보안, API 에러, 관측, 트리)
 ```
-
-> 저장소 구조/모듈 책임이 변경되면 `docs/project-tree.md`를 반드시 함께 갱신합니다.
 
 ---
 
@@ -109,6 +114,11 @@ docs/                       # 운영 문서(보안, 에러 규약, 트리 문서
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# 선택값 (선택)
+NEXT_PUBLIC_SITE_URL=your_site_url
+SUPABASE_REQUEST_TIMEOUT_MS=10000
+NEXT_PUBLIC_SUPABASE_REQUEST_TIMEOUT_MS=10000
 ```
 
 ### Commands
@@ -162,6 +172,7 @@ npx tsc --noEmit     # 타입 체크
   - `docs/security-p0-checklist.md`
   - `docs/api-errors.md`
   - `docs/observability.md`
+  - `docs/project-tree.md`
 - 기여 가이드:
   - `AGENTS.md`
   - `GEMINI.md`
