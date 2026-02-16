@@ -1,4 +1,5 @@
 import { type NextRequest } from "next/server"
+import { z } from "zod"
 import { apiSuccess } from "@/lib/shared/api-response"
 import {
   getPopularTags,
@@ -8,10 +9,21 @@ import {
 } from "@/features/search/server/search"
 import { normalizeSearchQuery } from "@/lib/shared/security"
 import { apiErrorResponse, createApiContext, jsonWithRequestId, logApiSuccess } from "@/lib/server/observability"
+import { validateQueryParams } from "@/lib/server/security"
 
 function normalizeTagParam(raw: string): string {
   return normalizeSearchQuery(raw).replace(/^#/, "").toLowerCase()
 }
+
+const searchQuerySchema = z.object({
+  mode: z.enum(["popular-tags", "suggestions", "search"]).default("search"),
+  q: z.string().trim().max(64).default(""),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "from 날짜 형식은 YYYY-MM-DD 이어야 합니다.").optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "to 날짜 형식은 YYYY-MM-DD 이어야 합니다.").optional(),
+  sort: z.enum(["latest", "relevance"]).default("relevance"),
+  page: z.coerce.number().int().min(1).max(1000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(10),
+})
 
 function parseDateParam(raw: string | null): string | undefined {
   if (!raw) {
@@ -27,17 +39,6 @@ function parseDateParam(raw: string | null): string | undefined {
   return raw
 }
 
-function parsePageParam(raw: string | null, fallback: number): number {
-  if (!raw) {
-    return fallback
-  }
-  const parsed = Number.parseInt(raw, 10)
-  if (Number.isNaN(parsed) || parsed < 1) {
-    throw new Error("INVALID_PAGE")
-  }
-  return parsed
-}
-
 function parseSortParam(raw: string | null): SearchSort {
   if (raw === "latest") {
     return "latest"
@@ -48,7 +49,17 @@ function parseSortParam(raw: string | null): SearchSort {
 export async function GET(request: NextRequest) {
   const context = createApiContext(request)
   const { searchParams } = new URL(request.url)
-  const mode = searchParams.get("mode") ?? "search"
+  const query = validateQueryParams(searchParams, searchQuerySchema)
+  if (!query.success) {
+    return apiErrorResponse(
+      context,
+      "BAD_QUERY",
+      query.message,
+      400
+    )
+  }
+
+  const { mode, from, to, sort, page, pageSize, q } = query.data
 
   try {
     if (mode === "popular-tags") {
@@ -59,15 +70,32 @@ export async function GET(request: NextRequest) {
     }
 
     if (mode === "suggestions") {
-      const q = normalizeSearchQuery(searchParams.get("q") ?? "")
-      const data = await getSearchSuggestions(q)
+      const safeQuery = normalizeSearchQuery(q ?? "")
+      if (!safeQuery) {
+        return jsonWithRequestId(apiSuccess([]), context.requestId)
+      }
+
+      const data = await getSearchSuggestions(safeQuery)
       const response = jsonWithRequestId(apiSuccess(data), context.requestId)
       logApiSuccess(context, 200)
       return response
     }
 
     if (mode === "search") {
-      const q = normalizeSearchQuery(searchParams.get("q") ?? "")
+      const safeQuery = normalizeSearchQuery(q)
+      if (!safeQuery && page === 1 && pageSize >= 0) {
+        return jsonWithRequestId(
+          apiSuccess({
+            items: [],
+            total: 0,
+            page,
+            pageSize,
+            hasNextPage: false,
+          }),
+          context.requestId
+        )
+      }
+
       const tags = Array.from(
         new Set(
           searchParams
@@ -77,13 +105,11 @@ export async function GET(request: NextRequest) {
             .filter(Boolean)
         )
       )
-      const from = parseDateParam(searchParams.get("from"))
-      const to = parseDateParam(searchParams.get("to"))
-      const sort = parseSortParam(searchParams.get("sort"))
-      const page = parsePageParam(searchParams.get("page"), 1)
-      const pageSize = parsePageParam(searchParams.get("pageSize"), 10)
+      const validatedFrom = parseDateParam(from)
+      const validatedTo = parseDateParam(to)
+      const validatedSort = parseSortParam(sort)
 
-      if (from && to && from > to) {
+      if (validatedFrom && validatedTo && validatedFrom > validatedTo) {
         return apiErrorResponse(
           context,
           "BAD_DATE_RANGE",
@@ -93,11 +119,11 @@ export async function GET(request: NextRequest) {
       }
 
       const data = await searchPosts({
-        q,
+        q: safeQuery,
         tags,
-        from,
-        to,
-        sort,
+        from: validatedFrom,
+        to: validatedTo,
+        sort: validatedSort,
         page,
         pageSize,
       })

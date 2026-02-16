@@ -2,6 +2,16 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { getSafeRedirectPath } from "@/lib/shared/security";
 
+function normalizeCookieOptions(options: Record<string, unknown>) {
+  const isProduction = process.env.NODE_ENV === "production"
+  return {
+    ...options,
+    httpOnly: options?.httpOnly ?? true,
+    secure: options?.secure ?? isProduction,
+    sameSite: options?.sameSite ?? "lax",
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
@@ -38,7 +48,7 @@ export async function GET(request: NextRequest) {
             },
             setAll(cookiesToSet) {
               cookiesToSet.forEach(({ name, value, options }) => {
-                response.cookies.set(name, value, options);
+                response.cookies.set(name, value, normalizeCookieOptions(options ?? {}));
               });
             },
           },

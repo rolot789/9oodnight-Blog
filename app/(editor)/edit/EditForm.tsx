@@ -4,19 +4,18 @@ import type React from "react"
 import { useEffect, useState, useMemo, Suspense, useCallback, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Paperclip, Trash2, UploadCloud, Eye, EyeOff, X, Edit2, Download, Columns, Image, Hash, FileText, Calendar, Tag } from "lucide-react"
+import { Paperclip, Trash2, UploadCloud, Eye, X, Download, Columns, Image, Hash, FileText, Calendar, Tag } from "lucide-react"
 import { Toggle } from "@/components/ui/toggle"
-import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import dynamic from "next/dynamic"
-import TableOfContents from "@/features/post/components/TableOfContents"
 import { POST_CATEGORIES as categories, DEFAULT_IMAGES } from "@/lib/constants"
 import { useLocalDraft } from "@/features/editor/hooks/useLocalDraft"
 import { MARKDOWN_IMPORT_STORAGE_KEY, parseMarkdownImportPayload } from "@/lib/shared/markdown-import"
 import { toSlug } from "@/lib/shared/slug"
 import { toPostPath } from "@/lib/shared/slug"
+import { sanitizeHtmlContent } from "@/lib/shared/security"
 
 const RealtimePreview = dynamic(() => import("@/features/editor/components/RealtimePreview"), {
   ssr: false,
@@ -50,6 +49,170 @@ interface DraftPayload {
   seriesTitle: string
   seriesSlug: string
   seriesPosition: string
+}
+
+const MAX_EXCERPT_LENGTH = 500
+const MAX_TITLE_LENGTH = 120
+const MAX_CONTENT_LENGTH = 30000
+const MAX_TAG_LENGTH = 30
+const MAX_TAGS = 12
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
+const MAX_FEATURED_IMAGE_BYTES = 4 * 1024 * 1024
+const SAFE_ATTACHMENT_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "pdf",
+  "txt",
+  "md",
+  "csv",
+  "json",
+])
+const SAFE_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp"])
+const DISALLOWED_EXTENSIONS = new Set([
+  "exe",
+  "bat",
+  "cmd",
+  "sh",
+  "js",
+  "jsx",
+  "ts",
+  "tsx",
+  "mjs",
+  "php",
+  "py",
+  "pl",
+  "jar",
+  "dll",
+  "msi",
+  "apk",
+  "iso",
+  "com",
+  "scr",
+  "ps1",
+  "vbs",
+  "aspx",
+  "asp",
+  "jsp",
+  "pyc",
+  "pyo",
+  "go",
+  "class",
+  "bin",
+  "elf",
+  "so",
+  "dmg",
+  "app",
+  "html",
+  "htm",
+  "svg",
+  "xml",
+])
+
+function extractFileExtension(name: string): string {
+  const rawExt = name.split(".").pop() || ""
+  return rawExt.toLowerCase()
+}
+
+function sanitizeStorageName(ext: string): string {
+  const safeExt = ext.slice(0, 8)
+  return `${crypto.randomUUID().replace(/-/g, "")}.${safeExt}`
+}
+
+async function readSignature(file: File, bytes = 16): Promise<number[]> {
+  const buffer = await file.slice(0, bytes).arrayBuffer()
+  return Array.from(new Uint8Array(buffer))
+}
+
+function hasBinarySignature(signature: number[], fileType: "image" | "pdf"): boolean {
+  if (fileType === "image") {
+    const png = [0x89, 0x50, 0x4e, 0x47]
+    const jpeg = [0xff, 0xd8, 0xff]
+    const gif = [0x47, 0x49, 0x46]
+    const webp = [0x52, 0x49, 0x46, 0x46]
+    return (
+      signature.slice(0, 4).every((value, index) => value === png[index]) ||
+      signature.slice(0, 3).every((value, index) => value === jpeg[index]) ||
+      signature.slice(0, 3).every((value, index) => value === gif[index]) ||
+      signature.slice(0, 4).every((value, index) => value === webp[index])
+    )
+  }
+
+  const pdf = [0x25, 0x50, 0x44, 0x46]
+  return signature.slice(0, 4).every((value, index) => value === pdf[index])
+}
+
+function normalizeUploadTag(tag: string): string {
+  return tag
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9가-힣-]/g, "")
+    .slice(0, MAX_TAG_LENGTH)
+}
+
+function isSafeStoragePath(filePath: string): boolean {
+  return /^[a-z0-9][a-z0-9/_-]{2,220}\.(png|jpg|jpeg|gif|webp|pdf|txt|md|csv|json)$/i.test(filePath)
+}
+
+function sanitizeTags(values: string[]): string[] {
+  const unique = new Set<string>()
+  values.forEach((rawTag) => {
+    const tag = normalizeUploadTag(rawTag)
+    if (tag) {
+      unique.add(tag.toLowerCase())
+    }
+  })
+  return Array.from(unique).slice(0, MAX_TAGS)
+}
+
+function sanitizeInputText(
+  value: string,
+  maxLength: number,
+  fallback = ""
+): string {
+  return value.trim().slice(0, maxLength) || fallback
+}
+
+async function validateAttachmentFile(file: File, kind: "image" | "attachment"): Promise<string> {
+  const ext = extractFileExtension(file.name)
+  if (!ext) {
+    throw new Error("확장자가 없는 파일은 업로드할 수 없습니다.")
+  }
+
+  if (DISALLOWED_EXTENSIONS.has(ext)) {
+    throw new Error("실행 파일/스크립트 파일은 업로드할 수 없습니다.")
+  }
+
+  const maxBytes = kind === "image" ? MAX_FEATURED_IMAGE_BYTES : MAX_ATTACHMENT_BYTES
+  if (file.size <= 0 || file.size > maxBytes) {
+    throw new Error("파일 크기가 허용 범위를 초과했습니다.")
+  }
+
+  const allowedExtensions = kind === "image" ? SAFE_IMAGE_EXTENSIONS : SAFE_ATTACHMENT_EXTENSIONS
+  if (!allowedExtensions.has(ext)) {
+    throw new Error("지원되지 않는 파일 형식입니다.")
+  }
+
+  const mime = (file.type || "").toLowerCase()
+  if (kind === "image") {
+    if (!mime.startsWith("image/")) {
+      throw new Error("이미지 파일만 업로드할 수 있습니다.")
+    }
+  }
+
+  if (kind === "image" || ext === "pdf") {
+    const signature = await readSignature(file)
+    if (kind === "image" && !hasBinarySignature(signature, "image")) {
+      throw new Error("이미지 파일 시그니처가 유효하지 않습니다.")
+    }
+    if (ext === "pdf" && !hasBinarySignature(signature, "pdf")) {
+      throw new Error("PDF 파일 시그니처가 유효하지 않습니다.")
+    }
+  }
+
+  return sanitizeStorageName(ext)
 }
 
 function normalizeSeriesSlug(input: string): string {
@@ -96,8 +259,8 @@ function EditFormContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
-  const [userRole, setUserRole] = useState<string | null>(null)
   const [isPostLoading, setIsPostLoading] = useState(false)
+  const [isAuthorizedPost, setIsAuthorizedPost] = useState(false)
   const importedMarkdownAppliedRef = useRef(false)
 
   const supabase = useMemo(() => createClient(), [])
@@ -144,10 +307,10 @@ function EditFormContent() {
     setExcerpt(draft.excerpt || "")
     setSlug(draft.slug || "")
     setContent(draft.content || "")
-    setTags(draft.tags || [])
+    setTags(sanitizeTags(draft.tags || []))
     setImageUrl(draft.imageUrl || DEFAULT_IMAGES.THUMBNAIL)
     setFeaturedImagePath(draft.featuredImagePath || null)
-    setAttachments(draft.attachments || [])
+    setAttachments((draft.attachments || []).filter((file) => isSafeStoragePath(file.filePath)))
     setSeriesTitle(draft.seriesTitle || "")
     setSeriesSlug(draft.seriesSlug || "")
     setSeriesPosition(draft.seriesPosition || "")
@@ -161,59 +324,84 @@ function EditFormContent() {
         return
       }
       setUserId(user.id)
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single()
-      
-      setUserRole(profile?.role || "user")
     }
     checkUser()
   }, [supabase, router])
 
   useEffect(() => {
     const fetchPost = async () => {
-      if (postId) {
-        setIsPostLoading(true)
-        const { data, error } = await supabase.from("posts").select("*", { count: 'exact' }).eq("id", postId).single()
+      if (!postId || !userId) {
+        return
+      }
+
+      setIsPostLoading(true)
+      setIsAuthorizedPost(false)
+      const { data, error } = await supabase
+        .from("posts")
+        .select("*")
+        .eq("id", postId)
+        .eq("author_id", userId)
+        .maybeSingle()
+
+      if (!data) {
+        setIsPostLoading(false)
         if (error) {
           toast.error(`Error: ${error.message}`)
-        } else if (data) {
-          setTitle(data.title)
-          setCategory(data.category)
-          setExcerpt(data.excerpt)
-          setContent(data.content)
-          setSlug(data.slug || toSlug(data.title || ""))
-          setTags(data.tags || [])
-          setImageUrl(data.image_url || DEFAULT_IMAGES.THUMBNAIL)
-          setFeaturedImagePath(data.featured_image_path || null)
-          setAttachments(data.attachments || [])
-
-          const { data: seriesData, error: seriesError } = await supabase
-            .from("post_series_items")
-            .select("series_title, series_slug, position")
-            .eq("post_id", postId)
-            .maybeSingle()
-
-          if (!seriesError && seriesData) {
-            setSeriesTitle(seriesData.series_title || "")
-            setSeriesSlug(seriesData.series_slug || "")
-            setSeriesPosition(
-              typeof seriesData.position === "number" ? String(seriesData.position) : ""
-            )
-          } else if (seriesError && !isMissingRelationError(seriesError)) {
-            console.error("Failed to load series metadata:", seriesError)
-          }
+        } else {
+          toast.error("권한이 없거나 존재하지 않는 글입니다.")
+          router.push("/")
         }
-        setIsPostLoading(false)
+        return
       }
+
+      if (error) {
+        setIsPostLoading(false)
+        toast.error(`Error: ${error.message}`)
+        return
+      }
+
+      setIsAuthorizedPost(true)
+      setTitle(data.title || "")
+      setCategory(data.category || "")
+      setExcerpt(sanitizeInputText(data.excerpt || "", MAX_EXCERPT_LENGTH))
+      setContent(data.content || "")
+      setSlug(data.slug || toSlug(data.title || ""))
+      setTags(sanitizeTags(data.tags || []))
+      setImageUrl(data.image_url || DEFAULT_IMAGES.THUMBNAIL)
+      setFeaturedImagePath(
+        isSafeStoragePath(data.featured_image_path || "")
+          ? data.featured_image_path
+          : null
+      )
+      setAttachments(((data.attachments || []) as Attachment[]).filter((attachment) =>
+        isSafeStoragePath(attachment?.filePath || "")
+      ))
+
+      const { data: seriesData, error: seriesError } = await supabase
+        .from("post_series_items")
+        .select("series_title, series_slug, position")
+        .eq("post_id", postId)
+        .maybeSingle()
+
+      if (!seriesError && seriesData) {
+        setSeriesTitle(seriesData.series_title || "")
+        setSeriesSlug(seriesData.series_slug || "")
+        setSeriesPosition(
+          typeof seriesData.position === "number" ? String(seriesData.position) : ""
+        )
+      } else if (seriesError && !isMissingRelationError(seriesError)) {
+        console.error("Failed to load series metadata:", seriesError)
+      }
+
+      setIsPostLoading(false)
     }
+
     if (isEditMode) {
       fetchPost()
+    } else {
+      setIsAuthorizedPost(true)
     }
-  }, [postId, isEditMode, supabase, router])
+  }, [postId, isEditMode, userId, supabase, router])
 
   const isEditorReady = !isEditMode || !isPostLoading
 
@@ -313,9 +501,9 @@ function EditFormContent() {
       return
     }
 
-    setTitle(parsedPayload.title)
-    setExcerpt(parsedPayload.excerpt)
-    setContent(parsedPayload.body)
+    setTitle(sanitizeInputText(parsedPayload.title, MAX_TITLE_LENGTH))
+    setExcerpt(sanitizeInputText(parsedPayload.excerpt, MAX_EXCERPT_LENGTH))
+    setContent(sanitizeInputText(parsedPayload.body, MAX_CONTENT_LENGTH))
     toast.success("Markdown preset imported.")
   }, [
     isEditMode,
@@ -353,8 +541,9 @@ function EditFormContent() {
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && currentTag.trim()) {
       e.preventDefault()
-      if (!tags.includes(currentTag.trim())) {
-        setTags([...tags, currentTag.trim()])
+      const normalizedTag = normalizeUploadTag(currentTag)
+      if (normalizedTag && !tags.includes(normalizedTag) && tags.length < MAX_TAGS) {
+        setTags([...tags, normalizedTag])
       }
       setCurrentTag("")
     }
@@ -368,24 +557,42 @@ function EditFormContent() {
     if (!postId) return
 
     setIsSubmitting(true)
+    if (!userId || !isAuthorizedPost) {
+      toast.error("삭제 권한이 없습니다.")
+      setIsSubmitting(false)
+      return
+    }
 
-    // Delete attachments
-    if (attachments.length > 0) {
-      const filePaths = attachments.map(file => file.filePath);
-      const { error: storageError } = await supabase.storage.from('files').remove(filePaths);
+    const { data: ownedPost, error: postOwnerError } = await supabase
+      .from("posts")
+      .select("id")
+      .eq("id", postId)
+      .eq("author_id", userId)
+      .maybeSingle()
+
+    if (!ownedPost || postOwnerError) {
+      toast.error(
+        `Failed to delete: ${postOwnerError ? postOwnerError.message : "권한이 없거나 존재하지 않는 글입니다."}`
+      )
+      setIsSubmitting(false)
+      return
+    }
+
+    const removableAttachmentPaths = attachments
+      .map((file) => file.filePath)
+      .filter((filePath) => isSafeStoragePath(filePath))
+
+    if (removableAttachmentPaths.length > 0) {
+      const { error: storageError } = await supabase.storage.from("files").remove(removableAttachmentPaths)
       if (storageError) {
-        toast.error(`Failed to delete attachments: ${storageError.message}`);
-        // Continue to delete post even if attachments fail, or return? 
-        // Best effort usually.
+        toast.error(`Failed to delete attachments: ${storageError.message}`)
       }
     }
 
-    // Delete featured image
-    if (featuredImagePath) {
-      const { error: imageDeleteError } = await supabase.storage.from('files').remove([featuredImagePath]);
+    if (featuredImagePath && isSafeStoragePath(featuredImagePath)) {
+      const { error: imageDeleteError } = await supabase.storage.from("files").remove([featuredImagePath])
       if (imageDeleteError) {
-        console.error("Failed to delete featured image:", imageDeleteError);
-        // Toast optional, maybe just log
+        console.error("Failed to delete featured image:", imageDeleteError)
       }
     }
 
@@ -398,7 +605,11 @@ function EditFormContent() {
       console.error("Failed to delete series membership:", seriesDeleteError)
     }
 
-    const { error } = await supabase.from("posts").delete().eq("id", postId)
+    const { error } = await supabase
+      .from("posts")
+      .delete()
+      .eq("id", postId)
+      .eq("author_id", userId)
 
     if (error) {
       toast.error(`Error: ${error.message}`)
@@ -414,64 +625,66 @@ function EditFormContent() {
     if (!e.target.files || e.target.files.length === 0) {
       return
     }
+    if (!userId || (!isAuthorizedPost && isEditMode)) {
+      toast.error("업로드 권한이 없습니다.")
+      return
+    }
+
     const file = e.target.files[0]
-    
-    const fileExt = file.name.split('.').pop()
-    const fileNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name
-    const safeFileName = fileNameWithoutExt.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_')
-    const finalName = safeFileName.length > 0 ? safeFileName : 'file'
-    
-    const filePath = `${Date.now()}_${finalName}.${fileExt}`
 
     setIsUploading(true)
+    try {
+      const safeFileName = await validateAttachmentFile(file, "attachment")
+      const { error } = await supabase.storage.from("files").upload(safeFileName, file)
 
-    const { error } = await supabase.storage.from("files").upload(filePath, file)
-
-    if (error) {
-      toast.error(`Upload error: ${error.message}`)
-    } else {
-      const { data: { publicUrl } } = supabase.storage.from("files").getPublicUrl(filePath)
-      setAttachments((current) => [
-        ...current,
-        { filename: file.name, url: publicUrl, filePath },
-      ])
+      if (error) {
+        toast.error(`Upload error: ${error.message}`)
+      } else {
+        const { data: { publicUrl } } = supabase.storage.from("files").getPublicUrl(safeFileName)
+        setAttachments((current) => [
+          ...current,
+          { filename: file.name, url: publicUrl, filePath: safeFileName },
+        ])
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "파일 업로드에 실패했습니다."
+      toast.error(message)
+    } finally {
+      setIsUploading(false)
     }
-    setIsUploading(false)
   }
 
   const handleFeaturedImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) {
       return
     }
-    const file = e.target.files[0]
-    
-    // Check file type (optional but good)
-    if (!file.type.startsWith('image/')) {
-      toast.error("Please upload an image file.")
+    if (!userId || (!isAuthorizedPost && isEditMode)) {
+      toast.error("업로드 권한이 없습니다.")
       return
     }
 
-    const fileExt = file.name.split('.').pop()
-    const filePath = `featured_${Date.now()}.${fileExt}`
-
+    const file = e.target.files[0]
     setIsUploading(true)
+    try {
+      const safeFileName = await validateAttachmentFile(file, "image")
+      if (featuredImagePath && isSafeStoragePath(featuredImagePath)) {
+        await supabase.storage.from("files").remove([featuredImagePath])
+      }
 
-    // If there is an existing featured image, we might want to delete it or just overwrite reference.
-    // Let's delete the old one to keep storage clean if we have the path.
-    if (featuredImagePath) {
-      await supabase.storage.from('files').remove([featuredImagePath])
+      const { error } = await supabase.storage.from("files").upload(safeFileName, file)
+      if (error) {
+        toast.error(`Upload error: ${error.message}`)
+      } else {
+        const { data: { publicUrl } } = supabase.storage.from("files").getPublicUrl(safeFileName)
+        setImageUrl(publicUrl)
+        setFeaturedImagePath(safeFileName)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "대표 이미지 업로드에 실패했습니다."
+      toast.error(message)
+    } finally {
+      setIsUploading(false)
     }
-
-    const { error } = await supabase.storage.from("files").upload(filePath, file)
-
-    if (error) {
-      toast.error(`Upload error: ${error.message}`)
-    } else {
-      const { data: { publicUrl } } = supabase.storage.from("files").getPublicUrl(filePath)
-      setImageUrl(publicUrl)
-      setFeaturedImagePath(filePath)
-    }
-    setIsUploading(false)
   }
 
   const handleFeaturedImageRemove = async () => {
@@ -479,9 +692,17 @@ function EditFormContent() {
       setImageUrl(DEFAULT_IMAGES.THUMBNAIL)
       return
     }
+    if (!userId || (!isAuthorizedPost && isEditMode)) {
+      toast.error("삭제 권한이 없습니다.")
+      return
+    }
+    if (!isSafeStoragePath(featuredImagePath)) {
+      toast.error("허용되지 않은 경로의 파일입니다.")
+      return
+    }
 
     setIsUploading(true)
-    const { error } = await supabase.storage.from('files').remove([featuredImagePath])
+    const { error } = await supabase.storage.from("files").remove([featuredImagePath])
     
     if (error) {
       toast.error(`Failed to remove image: ${error.message}`)
@@ -495,11 +716,25 @@ function EditFormContent() {
   }
 
   const handleFileDelete = (filePath: string) => {
+    if (!isSafeStoragePath(filePath)) {
+      toast.error("허용되지 않은 파일 경로입니다.")
+      return
+    }
     setFileToDelete(filePath)
   }
 
   const executeFileDelete = async () => {
     if (!fileToDelete) return
+    if (!userId || (!isAuthorizedPost && isEditMode)) {
+      setFileToDelete(null)
+      toast.error("삭제 권한이 없습니다.")
+      return
+    }
+    if (!isSafeStoragePath(fileToDelete)) {
+      setFileToDelete(null)
+      toast.error("허용되지 않은 파일 경로입니다.")
+      return
+    }
 
     const filePathToDelete = fileToDelete
     setAttachments((current) => current.filter((att) => att.filePath !== filePathToDelete))
@@ -535,8 +770,33 @@ function EditFormContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!userId) {
+      toast.error("로그인이 필요합니다.")
+      return
+    }
+
+    if (isEditMode && !isAuthorizedPost) {
+      toast.error("수정 권한이 없습니다.")
+      return
+    }
+
+    const safeCategory = categories.includes(category) ? category : categories[0] || ""
+    const safeTitle = sanitizeInputText(title, MAX_TITLE_LENGTH)
+    const safeExcerpt = sanitizeInputText(excerpt, MAX_EXCERPT_LENGTH)
+    const safeContent = sanitizeInputText(sanitizeHtmlContent(content), MAX_CONTENT_LENGTH)
+    const safeTags = sanitizeTags(tags)
+    const safeAttachments = attachments.filter((file) => isSafeStoragePath(file.filePath))
+    const safeFeaturedImagePath = featuredImagePath && isSafeStoragePath(featuredImagePath)
+      ? featuredImagePath
+      : null
+
+    if (!safeTitle) {
+      toast.error("제목은 필수 입력 항목입니다.")
+      return
+    }
+
     setIsSubmitting(true)
-    let nextSlug = toSlug(title) || "untitled"
+    let nextSlug = toSlug(safeTitle) || "untitled"
     try {
       nextSlug = await buildUniqueSlug(nextSlug)
     } catch (error) {
@@ -546,16 +806,16 @@ function EditFormContent() {
     }
 
     const postData = {
-      title,
-      category,
-      excerpt,
-      content,
+      title: safeTitle,
+      category: safeCategory,
+      excerpt: safeExcerpt,
+      content: safeContent,
       slug: nextSlug,
-      tags,
+      tags: safeTags,
       image_url: imageUrl || DEFAULT_IMAGES.THUMBNAIL,
-      featured_image_path: featuredImagePath,
-      attachments,
-      read_time: `${Math.max(1, Math.ceil(content.split(" ").length / 200))} min`,
+      featured_image_path: safeFeaturedImagePath,
+      attachments: safeAttachments,
+      read_time: `${Math.max(1, Math.ceil(safeContent.split(" ").length / 200))} min`,
     }
 
     let error
@@ -567,6 +827,7 @@ function EditFormContent() {
         .from("posts")
         .update(postData)
         .eq("id", postId)
+        .eq("author_id", userId)
         .select("id")
         .single()
       error = updateError
@@ -762,6 +1023,7 @@ function EditFormContent() {
             type="text" 
             value={title} 
             onChange={(e) => setTitle(e.target.value)} 
+            maxLength={MAX_TITLE_LENGTH}
             placeholder="Untitled" 
             required 
             className="w-full bg-transparent text-4xl font-bold text-[#080f18] placeholder-[#c0c0c0] outline-none border-none py-2 mb-2"
@@ -881,9 +1143,10 @@ function EditFormContent() {
                 <Hash className="h-4 w-4" />
                 <span className="text-sm">Excerpt</span>
               </div>
-              <textarea 
+                <textarea 
                 value={excerpt} 
                 onChange={(e) => setExcerpt(e.target.value)} 
+                maxLength={MAX_EXCERPT_LENGTH}
                 placeholder="Write a short summary..." 
                 required 
                 rows={2} 

@@ -1,6 +1,14 @@
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 import EditForm from "./EditForm"
 
-export default function EditPage() {
+export default async function EditPage() {
+  const supabase = await createClient()
+  const { data } = await supabase.auth.getUser()
+  if (!data.user) {
+    redirect("/login")
+  }
+
   return (
     <div className="min-h-screen bg-[#fafbfc]">
       {/* Editor */}

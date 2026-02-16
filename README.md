@@ -152,6 +152,27 @@ npx tsc --noEmit     # 타입 체크
 - 검색 결과 노출 여부
 - OG/SEO 메타 반영 여부
 
+## my_blog 핵심 보안 체크리스트 (실행 상태)
+
+### 1차 보안 하드닝 완료 항목
+- [x] `/edit` 접근 통제: 서버 컴포넌트 가드 적용 (`app/(editor)/edit/page.tsx`)
+- [x] 미들웨어 엔트리 정합화: `middleware.ts` + `proxy.ts` matcher 적용
+- [x] 쿠키 보안 속성: `Secure`/`HttpOnly`/`SameSite` 설정 (`proxy.ts`)
+- [x] 인증 API 하드닝: `/api/auth/signin`에 `zod` 입력 검증 + IP 기반 레이트리밋 적용
+- [x] API 인증/인가 적용: `app/api/todos/**`, `/api/auth/session`에서 `getAuthenticatedUser`
+- [x] IDOR 방지: 글/투두 데이터 처리에 `userId`/`author_id` 제한 적용
+- [x] 입력값 유효성 검증 강화: `app/api/posts`, `app/api/search`, `app/api/todos`
+- [x] CSP 및 보안 헤더 적용: `proxy.ts`
+- [x] 파일 업로드 제어: `app/(editor)/edit/EditForm.tsx`의 MIME/시그니처/확장자/크기/경로 검증
+- [x] 파일 삭제/대표 이미지 삭제 경로 검증: `isSafeStoragePath` 적용
+
+### 2차 보안 보완 항목(권고)
+- [ ] 운영 로그의 PII/토큰 마스킹 및 감사로그 분리 정책 정착
+- [ ] 로그인 실패/잠금/권한변경 이벤트에 대한 모니터링 알림 구성
+- [ ] refresh token 회전/폐기 정책 강화(서버측 세션 정책 점검)
+- [ ] 의존성 취약점 스캔(SCA) 및 정기 갱신(예: `npm audit`/CI)
+- [ ] 내부 API TLS, WAF, bot/DDoS 방어/보안그룹 정책 문서화
+
 ---
 
 ## 7) Screenshots

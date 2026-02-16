@@ -25,13 +25,16 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch("/api/auth/signin", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
+      const responseJson = await response.json();
 
-      if (signInError) {
-        setError(signInError.message || "Invalid credentials");
+      if (!response.ok || responseJson?.ok === false) {
+        const message = responseJson?.error?.message || "Invalid credentials";
+        setError(message);
       } else {
         router.push("/");
         router.refresh();
