@@ -266,6 +266,26 @@ function isHtmlContent(content: string): boolean {
   )
 }
 
+function isBlockNoteJson(content: string): boolean {
+  const trimmed = content.trim()
+  if (!trimmed.startsWith("[")) return false
+  try {
+    const parsed = JSON.parse(trimmed)
+    return Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object" && "type" in parsed[0]
+  } catch {
+    return false
+  }
+}
+
+function isBlockNoteHtml(content: string): boolean {
+  const trimmed = content.trim()
+  return (
+    trimmed.includes("data-content-type=") ||
+    trimmed.includes('class="bn-') ||
+    trimmed.includes("class='bn-")
+  )
+}
+
 function createHeadingSlug(text: string, index: number): string {
   const slug = text
     .normalize("NFKC")
@@ -316,12 +336,22 @@ export default async function PostContent({ content }: PostContentProps) {
     return null
   }
 
+  if (isBlockNoteJson(content)) {
+    return <BlockNoteViewerClient content={content} />
+  }
+
   if (!isHtmlContent(content)) {
     return <BlockNoteViewerClient content={content} />
   }
 
-  const safeHtml = addHeadingIds(sanitizeHtmlContent(content))
-  const highlightedHtml = await applyCodeHighlighting(safeHtml)
+  const safeHtml = sanitizeHtmlContent(content)
+
+  if (isBlockNoteHtml(safeHtml)) {
+    return <BlockNoteViewerClient content={safeHtml} />
+  }
+
+  const htmlWithHeadingIds = addHeadingIds(safeHtml)
+  const highlightedHtml = await applyCodeHighlighting(htmlWithHeadingIds)
 
   return (
     <>

@@ -8,7 +8,7 @@ import { blockNoteSchema } from "@/features/editor/lib/blocknote-schema"
 import { codeblockSafeEscapeExtension } from "@/features/editor/lib/codeblock-escape-extension"
 import { mathInputRulesExtension } from "@/features/editor/lib/math-input-rules-extension"
 import { getMathSlashMenuItems } from "@/features/editor/lib/math-slash-items"
-import { containsKaTeXMathDelimiters, normalizeKaTeXMarkdown } from "@/lib/shared/katex-markdown"
+import { normalizeKaTeXMarkdown } from "@/lib/shared/katex-markdown"
 
 interface BlockEditorProps {
   initialContent?: string
@@ -18,30 +18,26 @@ interface BlockEditorProps {
 
 const CONTENT_SYNC_DEBOUNCE_MS = 300
 
+function isBlockNoteJson(content: string): boolean {
+  const trimmed = content.trim()
+  if (!trimmed.startsWith("[")) return false
+  try {
+    const parsed = JSON.parse(trimmed)
+    return Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object" && "type" in parsed[0]
+  } catch {
+    return false
+  }
+}
+
 function isHTML(content: string): boolean {
   return content.trim().startsWith("<") && content.includes("</")
-}
-
-function normalizeSerializedContent(content: string): string {
-  return content.trim()
-}
-
-function selectSerializedContent(html: string, markdown: string): string {
-  const normalizedHtml = normalizeSerializedContent(html)
-  const normalizedMarkdown = normalizeSerializedContent(normalizeKaTeXMarkdown(markdown))
-
-  if (containsKaTeXMathDelimiters(normalizedMarkdown)) {
-    return normalizedMarkdown
-  }
-
-  return normalizedHtml
 }
 
 export default function BlockEditor({ initialContent = "", onChange, editable = true }: BlockEditorProps) {
   const [isReady, setIsReady] = useState(false)
   const [initialLoaded, setInitialLoaded] = useState(false)
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lastSerializedRef = useRef<string>(normalizeSerializedContent(initialContent))
+  const lastSerializedRef = useRef<string>(initialContent.trim())
 
   const editor = useCreateBlockNote({
     schema: blockNoteSchema,
@@ -54,25 +50,22 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
     },
   })
 
-  // Load initial content (supports both HTML and Markdown for backwards compatibility)
   useEffect(() => {
     const loadContent = async () => {
       if (initialContent && editor && !initialLoaded) {
         try {
-          let blocks
-          if (isHTML(initialContent)) {
-            // Parse HTML content
-            blocks = await editor.tryParseHTMLToBlocks(initialContent)
+          if (isBlockNoteJson(initialContent)) {
+            const blocks = JSON.parse(initialContent)
+            editor.replaceBlocks(editor.document, blocks)
+          } else if (isHTML(initialContent)) {
+            const blocks = await editor.tryParseHTMLToBlocks(initialContent)
+            editor.replaceBlocks(editor.document, blocks)
           } else {
-            // Parse Markdown content (backwards compatibility)
             const normalizedMarkdown = normalizeKaTeXMarkdown(initialContent)
-            blocks = await editor.tryParseMarkdownToBlocks(normalizedMarkdown)
-            lastSerializedRef.current = normalizeSerializedContent(normalizedMarkdown)
+            const blocks = await editor.tryParseMarkdownToBlocks(normalizedMarkdown)
+            editor.replaceBlocks(editor.document, blocks)
           }
-          editor.replaceBlocks(editor.document, blocks)
-          if (isHTML(initialContent)) {
-            lastSerializedRef.current = normalizeSerializedContent(initialContent)
-          }
+          lastSerializedRef.current = initialContent.trim()
           setInitialLoaded(true)
         } catch (error) {
           console.error("Failed to parse content:", error)
@@ -86,9 +79,7 @@ export default function BlockEditor({ initialContent = "", onChange, editable = 
   const emitContentChange = useCallback(async () => {
     if (!editor || !isReady) return
     try {
-      const html = editor.blocksToHTMLLossy(editor.document)
-      const markdown = editor.blocksToMarkdownLossy(editor.document)
-      const nextSerialized = selectSerializedContent(html, markdown)
+      const nextSerialized = JSON.stringify(editor.document)
 
       if (nextSerialized === lastSerializedRef.current) {
         return

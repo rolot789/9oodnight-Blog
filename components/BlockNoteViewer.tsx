@@ -67,7 +67,17 @@ async function copyText(text: string): Promise<boolean> {
   return copyWithFallback(text)
 }
 
-// Check if content is HTML (from BlockNote)
+function isBlockNoteJson(content: string): boolean {
+  const trimmed = content.trim()
+  if (!trimmed.startsWith("[")) return false
+  try {
+    const parsed = JSON.parse(trimmed)
+    return Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object" && "type" in parsed[0]
+  } catch {
+    return false
+  }
+}
+
 function isHTML(content: string): boolean {
   const trimmed = content.trim()
   return trimmed.startsWith('<') && (
@@ -111,7 +121,9 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
       if (content && editor) {
         try {
           let blocks
-          if (isHTML(content)) {
+          if (isBlockNoteJson(content)) {
+            blocks = JSON.parse(content)
+          } else if (isHTML(content)) {
             blocks = await editor.tryParseHTMLToBlocks(content)
           } else {
             blocks = await editor.tryParseMarkdownToBlocks(content)

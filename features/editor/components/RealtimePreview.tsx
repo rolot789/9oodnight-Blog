@@ -19,6 +19,17 @@ interface RealtimePreviewProps {
   content: string
 }
 
+function isBlockNoteJson(content: string): boolean {
+  const trimmed = content.trim()
+  if (!trimmed.startsWith("[")) return false
+  try {
+    const parsed = JSON.parse(trimmed)
+    return Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object" && "type" in parsed[0]
+  } catch {
+    return false
+  }
+}
+
 function isHtmlContent(content: string): boolean {
   const trimmed = content.trim()
   return trimmed.startsWith("<") && (
@@ -34,6 +45,10 @@ function isHtmlContent(content: string): boolean {
 }
 
 export default function RealtimePreview({ content }: RealtimePreviewProps) {
+  if (isBlockNoteJson(content)) {
+    return <BlockNoteViewer content={content} />
+  }
+
   if (!isHtmlContent(content)) {
     return <MarkdownRenderer content={content} />
   }

@@ -748,12 +748,17 @@ function EditFormContent() {
   }
 
   const handleContentChange = useCallback((nextContent: string) => {
+    const trimmed = nextContent.trim()
+    if (trimmed.startsWith("[")) {
+      setContent((prev) => (prev === nextContent ? prev : nextContent))
+      return
+    }
+
     if (!nextContent.includes("'''")) {
       setContent((prev) => (prev === nextContent ? prev : nextContent))
       return
     }
 
-    // Auto-convert ''' to ``` for code blocks
     const lines = nextContent.split("\n")
     let updated = false
     const updatedLines = lines.map((line) => {
@@ -783,7 +788,9 @@ function EditFormContent() {
     const safeCategory = categories.includes(category) ? category : categories[0] || ""
     const safeTitle = sanitizeInputText(title, MAX_TITLE_LENGTH)
     const safeExcerpt = sanitizeInputText(excerpt, MAX_EXCERPT_LENGTH)
-    const safeContent = sanitizeInputText(sanitizeHtmlContent(content), MAX_CONTENT_LENGTH)
+    const safeContent = content.trim().startsWith("[")
+      ? sanitizeInputText(content, MAX_CONTENT_LENGTH)
+      : sanitizeInputText(sanitizeHtmlContent(content), MAX_CONTENT_LENGTH)
     const safeTags = sanitizeTags(tags)
     const safeAttachments = attachments.filter((file) => isSafeStoragePath(file.filePath))
     const safeFeaturedImagePath = featuredImagePath && isSafeStoragePath(featuredImagePath)
