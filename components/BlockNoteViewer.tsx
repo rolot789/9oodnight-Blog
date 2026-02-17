@@ -521,14 +521,14 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
         }
 
         .blocknote-viewer-wrapper .bn-block-content[data-content-type="heading"][data-level="1"] {
-          margin-top: 14px !important;
+          margin-top: 28px !important;
           margin-bottom: 8px !important;
         }
 
         .blocknote-viewer-wrapper [data-content-type="heading"][data-level="1"] {
           font-size: 2rem;
           font-weight: 700;
-          margin-top: 14px !important;
+          margin-top: 28px !important;
           margin-bottom: 8px !important;
           line-height: 1.3;
           scroll-margin-top: 50px;
@@ -537,7 +537,7 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
         .blocknote-viewer-wrapper [data-content-type="heading"][data-level="2"] {
           font-size: 1.5rem;
           font-weight: 600;
-          margin-top: 12px !important;
+          margin-top: 20px !important;
           margin-bottom: 8px !important;
           line-height: 1.35;
           scroll-margin-top: 50px;
@@ -546,7 +546,7 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
         .blocknote-viewer-wrapper [data-content-type="heading"][data-level="3"] {
           font-size: 1.25rem;
           font-weight: 600;
-          margin-top: 8px !important;
+          margin-top: 15px !important;
           margin-bottom: 8px !important;
           scroll-margin-top: 50px;
         }
@@ -554,6 +554,13 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
         .blocknote-viewer-wrapper .bn-inline-content h1,
         .blocknote-viewer-wrapper .bn-inline-content h2,
         .blocknote-viewer-wrapper .bn-inline-content h3 {
+          margin-top: 0 !important;
+          margin-bottom: 0 !important;
+        }
+
+        .blocknote-viewer-wrapper .bn-inline-content [data-content-type="heading"][data-level="1"],
+        .blocknote-viewer-wrapper .bn-inline-content [data-content-type="heading"][data-level="2"],
+        .blocknote-viewer-wrapper .bn-inline-content [data-content-type="heading"][data-level="3"] {
           margin-top: 0 !important;
           margin-bottom: 0 !important;
         }
@@ -597,7 +604,7 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
         .blocknote-viewer-wrapper hr {
           border: none;
           border-top: 1px solid #e5e5e5;
-          margin: 24px 0;
+          margin: 12px 0;
         }
         
         .blocknote-viewer-wrapper img {
