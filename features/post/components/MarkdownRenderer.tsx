@@ -10,42 +10,21 @@ import CodeBlock from "@/components/CodeBlock"
 import { mdxComponents } from "@/components/mdx-components"
 import { sanitizeHtmlContent } from "@/lib/shared/security"
 import { normalizeKaTeXMarkdown } from "@/lib/shared/katex-markdown"
+import { isHtmlContent } from "@/lib/shared/content"
 
 interface MarkdownRendererProps {
   content: string
   className?: string
 }
 
-// Check if content is HTML (from BlockNote)
-function isHTML(content: string): boolean {
-  const trimmed = content.trim()
-  return trimmed.startsWith('<') && (
-    trimmed.startsWith('<p') || 
-    trimmed.startsWith('<h') || 
-    trimmed.startsWith('<div') || 
-    trimmed.startsWith('<ul') || 
-    trimmed.startsWith('<ol') ||
-    trimmed.startsWith('<blockquote') ||
-    trimmed.startsWith('<pre') ||
-    trimmed.startsWith('<table')
-  )
-}
-
-// Normalize markdown content for consistent rendering
 function normalizeMarkdown(content: string): string {
   let normalized = normalizeKaTeXMarkdown(content)
-
-  // Normalize line breaks for paragraphs
   normalized = normalized.replace(/\n\n+/g, '\n\n')
-  
-  // Handle checkbox list items from BlockNote
   normalized = normalized.replace(/^\[\s?\]\s/gm, '- [ ] ')
   normalized = normalized.replace(/^\[x\]\s/gm, '- [x] ')
-
   return normalized
 }
 
-// Style overrides for BlockNote HTML content
 const htmlStyles = `
   .blocknote-html-content p { margin-bottom: 1rem; line-height: 1.7; }
   .blocknote-html-content h1 { font-size: 2rem; font-weight: 700; margin: 14px 0 8px !important; }
@@ -67,8 +46,7 @@ const htmlStyles = `
 `
 
 export default function MarkdownRenderer({ content, className = "" }: MarkdownRendererProps) {
-  // If content is HTML (from BlockNote), render it directly
-  if (isHTML(content)) {
+  if (isHtmlContent(content)) {
     const sanitizedContent = sanitizeHtmlContent(content)
     return (
       <>

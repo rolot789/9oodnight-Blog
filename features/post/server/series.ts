@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import type { SeriesContext, SeriesMembership } from "@/lib/types"
+import { isMissingRelationError } from "@/lib/shared/supabase-errors"
 
 interface SeriesRow {
   post_id: string
@@ -15,13 +16,6 @@ interface SeriesPostRow {
   created_at: string
 }
 
-function isMissingSeriesTable(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false
-  }
-  const code = "code" in error ? String((error as { code?: string }).code ?? "") : ""
-  return code === "42P01"
-}
 
 function normalizeSeriesSlug(input: string): string {
   return input
@@ -74,7 +68,7 @@ export async function getSeriesMembership(postId: string): Promise<SeriesMembers
     .maybeSingle()
 
   if (error) {
-    if (isMissingSeriesTable(error)) {
+    if (isMissingRelationError(error)) {
       return null
     }
     throw error
@@ -116,7 +110,7 @@ export async function upsertSeriesMembership(input: {
       { onConflict: "post_id" }
     )
 
-  if (error && !isMissingSeriesTable(error)) {
+  if (error && !isMissingRelationError(error)) {
     throw error
   }
 }
@@ -128,7 +122,7 @@ export async function deleteSeriesMembership(postId: string): Promise<void> {
     .delete()
     .eq("post_id", postId)
 
-  if (error && !isMissingSeriesTable(error)) {
+  if (error && !isMissingRelationError(error)) {
     throw error
   }
 }
@@ -146,7 +140,7 @@ export async function getSeriesContext(postId: string): Promise<SeriesContext | 
     .eq("series_slug", membership.series_slug)
 
   if (seriesRowsError) {
-    if (isMissingSeriesTable(seriesRowsError)) {
+    if (isMissingRelationError(seriesRowsError)) {
       return null
     }
     throw seriesRowsError

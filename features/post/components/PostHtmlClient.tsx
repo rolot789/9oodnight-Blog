@@ -2,15 +2,12 @@
 
 import { useEffect, useRef } from "react"
 import renderMathInElement from "katex/contrib/auto-render"
+import { copyText } from "@/lib/shared/clipboard"
+import { KATEX_DELIMITERS } from "@/lib/shared/katex-render"
 
 interface PostHtmlClientProps {
   html: string
 }
-
-const KATEX_DELIMITERS = [
-  { left: "$$", right: "$$", display: true },
-  { left: "$", right: "$", display: false },
-]
 
 const COPY_ICON = `
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -25,43 +22,6 @@ const COPIED_ICON = `
 </svg>
 `
 
-function copyWithFallback(text: string): boolean {
-  const textarea = document.createElement("textarea")
-  textarea.value = text
-  textarea.setAttribute("readonly", "")
-  textarea.style.position = "fixed"
-  textarea.style.top = "-1000px"
-  textarea.style.opacity = "0"
-  document.body.appendChild(textarea)
-  textarea.select()
-
-  let copied = false
-  try {
-    copied = document.execCommand("copy")
-  } catch {
-    copied = false
-  } finally {
-    document.body.removeChild(textarea)
-  }
-
-  return copied
-}
-
-async function copyText(text: string): Promise<boolean> {
-  if (!text) return false
-
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return true
-    } catch {
-      return copyWithFallback(text)
-    }
-  }
-
-  return copyWithFallback(text)
-}
-
 export default function PostHtmlClient({ html }: PostHtmlClientProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -71,7 +31,7 @@ export default function PostHtmlClient({ html }: PostHtmlClientProps) {
 
     try {
       renderMathInElement(container, {
-        delimiters: KATEX_DELIMITERS,
+        delimiters: [...KATEX_DELIMITERS],
         throwOnError: false,
         strict: "ignore",
         ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "option"],

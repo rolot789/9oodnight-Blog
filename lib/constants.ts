@@ -1,17 +1,19 @@
-export const CATEGORIES = [
+const BASE_CATEGORIES = [
   "Mathematics",
   "Development",
   "DevOps",
   "Computer Science",
   "Crypto",
   "Research",
-  "General",
-  "Draft"
 ] as const
 
-export const TODO_CATEGORIES = ["Draft", "General", "Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"] as const
+export const CATEGORIES = [...BASE_CATEGORIES, "General", "Draft"] as const
 
-export const POST_CATEGORIES = ["Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
+export const TODO_CATEGORIES = ["Draft", "General", ...BASE_CATEGORIES] as const
+
+export const POST_CATEGORIES: string[] = [...BASE_CATEGORIES]
+
+export const FILTER_CATEGORIES = ["All", ...BASE_CATEGORIES] as const
 
 export const STATUSES = ["Icebox", "Draft", "Planned", "In Progress", "Done"] as const
 

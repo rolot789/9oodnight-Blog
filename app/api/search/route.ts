@@ -8,12 +8,9 @@ import {
   type SearchSort,
 } from "@/features/search/server/search"
 import { normalizeSearchQuery } from "@/lib/shared/security"
+import { normalizeTagValue } from "@/features/search/lib/search-utils"
 import { apiErrorResponse, createApiContext, jsonWithRequestId, logApiSuccess } from "@/lib/server/observability"
 import { validateQueryParams } from "@/lib/server/security"
-
-function normalizeTagParam(raw: string): string {
-  return normalizeSearchQuery(raw).replace(/^#/, "").toLowerCase()
-}
 
 const searchQuerySchema = z.object({
   mode: z.enum(["popular-tags", "suggestions", "search"]).default("search"),
@@ -25,25 +22,15 @@ const searchQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(50).default(10),
 })
 
-function parseDateParam(raw: string | undefined): string | undefined {
+function validateDateValue(raw: string | undefined): string | undefined {
   if (!raw) {
     return undefined
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    throw new Error("INVALID_DATE")
-  }
   const parsed = new Date(`${raw}T00:00:00.000Z`)
   if (Number.isNaN(parsed.getTime())) {
-    throw new Error("INVALID_DATE")
+    return undefined
   }
   return raw
-}
-
-function parseSortParam(raw: string | null): SearchSort {
-  if (raw === "latest") {
-    return "latest"
-  }
-  return "relevance"
 }
 
 export async function GET(request: NextRequest) {
@@ -101,13 +88,12 @@ export async function GET(request: NextRequest) {
           searchParams
             .getAll("tags")
             .flatMap((tag) => tag.split(","))
-            .map(normalizeTagParam)
+            .map(normalizeTagValue)
             .filter(Boolean)
         )
       )
-      const validatedFrom = parseDateParam(from)
-      const validatedTo = parseDateParam(to)
-      const validatedSort = parseSortParam(sort)
+      const validatedFrom = validateDateValue(from)
+      const validatedTo = validateDateValue(to)
 
       if (validatedFrom && validatedTo && validatedFrom > validatedTo) {
         return apiErrorResponse(
@@ -123,7 +109,7 @@ export async function GET(request: NextRequest) {
         tags,
         from: validatedFrom,
         to: validatedTo,
-        sort: validatedSort,
+        sort,
         page,
         pageSize,
       })
@@ -141,19 +127,9 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return apiErrorResponse(
       context,
-      error instanceof Error && error.message === "INVALID_DATE"
-        ? "BAD_DATE"
-        : error instanceof Error && error.message === "INVALID_PAGE"
-          ? "BAD_PAGE"
-          : "SEARCH_FAILED",
-      error instanceof Error && error.message === "INVALID_DATE"
-        ? "날짜 형식은 YYYY-MM-DD 이어야 합니다."
-        : error instanceof Error && error.message === "INVALID_PAGE"
-          ? "page/pageSize 값은 1 이상의 정수여야 합니다."
-          : "검색 처리 중 오류가 발생했습니다.",
-      error instanceof Error && (error.message === "INVALID_DATE" || error.message === "INVALID_PAGE")
-        ? 400
-        : 500,
+      "SEARCH_FAILED",
+      "검색 처리 중 오류가 발생했습니다.",
+      500,
       error
     )
   }

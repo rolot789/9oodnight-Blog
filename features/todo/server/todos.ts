@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { STATUSES, TODO_CATEGORIES } from "@/lib/constants"
 import type { Todo, TodoStatus } from "@/lib/types"
+import { isMissingRelationError } from "@/lib/shared/supabase-errors"
 
 export interface TodoListQuery {
   page: number
@@ -20,13 +21,6 @@ interface PostTitleRow {
   slug: string
 }
 
-function isMissingRelationError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false
-  }
-  const code = "code" in error ? String((error as { code?: string }).code ?? "") : ""
-  return code === "42P01" || code === "42703"
-}
 
 async function attachPostLinks(todos: Todo[]): Promise<Todo[]> {
   if (todos.length === 0) {

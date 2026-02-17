@@ -8,8 +8,10 @@ import {
   defaultInlineContentSpecs,
 } from "@blocknote/core"
 import type { CodeBlockOptions } from "@blocknote/core"
-import katex from "katex"
-import { createHighlighter } from "shiki"
+import { copyText } from "@/lib/shared/clipboard"
+import { getHighlighter } from "@/lib/shared/highlight"
+import { renderMathHtml } from "@/lib/shared/katex-render"
+import { createMathPopover } from "./math-popover"
 
 const COPY_ICON = `
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -117,60 +119,10 @@ const CODE_BLOCK_LANGUAGES: NonNullable<CodeBlockOptions["supportedLanguages"]> 
   },
 }
 
-let codeHighlighterPromise: ReturnType<typeof createHighlighter> | null = null
-
-function getCodeHighlighter() {
-  if (!codeHighlighterPromise) {
-    codeHighlighterPromise = createHighlighter({
-      themes: ["github-light-default"],
-      langs: [],
-    })
-  }
-
-  return codeHighlighterPromise
-}
-
-function copyWithFallback(text: string): boolean {
-  const textarea = document.createElement("textarea")
-  textarea.value = text
-  textarea.setAttribute("readonly", "")
-  textarea.style.position = "fixed"
-  textarea.style.top = "-1000px"
-  textarea.style.opacity = "0"
-  document.body.appendChild(textarea)
-  textarea.select()
-
-  let copied = false
-  try {
-    copied = document.execCommand("copy")
-  } catch {
-    copied = false
-  } finally {
-    document.body.removeChild(textarea)
-  }
-
-  return copied
-}
-
-async function copyText(text: string): Promise<boolean> {
-  if (!text) return false
-
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return true
-    } catch {
-      return copyWithFallback(text)
-    }
-  }
-
-  return copyWithFallback(text)
-}
-
 const baseCodeBlockSpec = createCodeBlockSpec({
   defaultLanguage: "typescript",
   supportedLanguages: CODE_BLOCK_LANGUAGES,
-  createHighlighter: getCodeHighlighter,
+  createHighlighter: getHighlighter,
 })
 
 const codeBlockSpec: typeof baseCodeBlockSpec = {
@@ -254,183 +206,6 @@ const codeBlockSpec: typeof baseCodeBlockSpec = {
       }
     },
   },
-}
-
-const MATH_POPOVER_MIN_WIDTH = 264
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
-}
-
-function renderMathHtml(latex: string, displayMode: boolean): string {
-  const normalizedLatex = latex.trim()
-
-  if (!normalizedLatex) {
-    return `<span class="math-empty">${displayMode ? "Empty equation" : "Empty math"}</span>`
-  }
-
-  try {
-    return katex.renderToString(normalizedLatex, {
-      displayMode,
-      throwOnError: false,
-      strict: "ignore",
-      output: "html",
-    })
-  } catch {
-    return `<span class="math-fallback">${escapeHtml(normalizedLatex)}</span>`
-  }
-}
-
-type MathPopoverOptions = {
-  anchor: HTMLElement
-  initialLatex: string
-  ariaLabel: string
-  allowMultiline?: boolean
-  onSave: (latex: string) => void
-}
-
-function createMathPopover({
-  anchor,
-  initialLatex,
-  ariaLabel,
-  allowMultiline = false,
-  onSave,
-}: MathPopoverOptions) {
-  const popover = document.createElement("div")
-  popover.className = "bn-editor-math-popover"
-  popover.contentEditable = "false"
-  popover.style.position = "fixed"
-  popover.style.minWidth = `${MATH_POPOVER_MIN_WIDTH}px`
-  popover.style.zIndex = "120"
-  popover.hidden = true
-
-  const row = document.createElement("div")
-  row.className = "bn-editor-math-popover-row"
-
-  const input = allowMultiline
-    ? document.createElement("textarea")
-    : document.createElement("input")
-  input.className = "bn-editor-math-popover-input"
-  input.setAttribute("aria-label", ariaLabel)
-  input.placeholder = String.raw`e.g. \int_C \vec{F} \cdot d\vec{s}`
-  input.value = initialLatex
-  if (input instanceof HTMLInputElement) {
-    input.type = "text"
-  } else {
-    input.rows = 1
-    input.wrap = "off"
-  }
-
-  const saveButton = document.createElement("button")
-  saveButton.type = "button"
-  saveButton.className = "bn-editor-math-popover-save"
-  saveButton.textContent = "완료"
-
-  row.append(input, saveButton)
-  popover.append(row)
-  document.body.append(popover)
-
-  let draftLatex = initialLatex
-  let isOpen = false
-
-  const positionPopover = () => {
-    const rect = anchor.getBoundingClientRect()
-    const maxWidth = Math.min(540, window.innerWidth - 24)
-    const left = Math.min(
-      Math.max(12, rect.left),
-      Math.max(12, window.innerWidth - maxWidth - 12),
-    )
-    const preferredTop = rect.bottom + 10
-    const top = Math.max(12, Math.min(preferredTop, window.innerHeight - 52))
-
-    popover.style.width = `${maxWidth}px`
-    popover.style.left = `${left}px`
-    popover.style.top = `${top}px`
-  }
-
-  const closePopover = () => {
-    if (!isOpen) return
-    isOpen = false
-    popover.hidden = true
-
-    document.removeEventListener("mousedown", handleOutsideMouseDown, true)
-    window.removeEventListener("resize", positionPopover)
-    window.removeEventListener("scroll", positionPopover, true)
-  }
-
-  const handleOutsideMouseDown = (event: MouseEvent) => {
-    const target = event.target as Node | null
-    if (!target) return
-    if (popover.contains(target) || anchor.contains(target)) return
-    closePopover()
-  }
-
-  const save = () => {
-    onSave(draftLatex)
-    closePopover()
-    anchor.focus()
-  }
-
-  const openPopover = (latex: string) => {
-    draftLatex = latex
-    input.value = latex
-
-    if (!isOpen) {
-      isOpen = true
-      popover.hidden = false
-
-      document.addEventListener("mousedown", handleOutsideMouseDown, true)
-      window.addEventListener("resize", positionPopover)
-      window.addEventListener("scroll", positionPopover, true)
-    }
-
-    positionPopover()
-    requestAnimationFrame(() => {
-      input.focus()
-      const cursor = input.value.length
-      input.selectionStart = cursor
-      input.selectionEnd = cursor
-    })
-  }
-
-  popover.addEventListener("mousedown", (event) => {
-    event.stopPropagation()
-  })
-
-  input.addEventListener("input", () => {
-    draftLatex = input.value
-  })
-
-  input.addEventListener("keydown", (event) => {
-    const keyboardEvent = event as KeyboardEvent
-    if (keyboardEvent.key === "Enter" && !(allowMultiline && keyboardEvent.shiftKey)) {
-      keyboardEvent.preventDefault()
-      save()
-      return
-    }
-
-    if (keyboardEvent.key === "Escape") {
-      keyboardEvent.preventDefault()
-      keyboardEvent.stopPropagation()
-      closePopover()
-      anchor.focus()
-    }
-  })
-
-  saveButton.addEventListener("click", save)
-
-  return {
-    open: openPopover,
-    destroy: () => {
-      closePopover()
-      popover.remove()
-    },
-  }
 }
 
 const inlineMathSpec = createInlineContentSpec(

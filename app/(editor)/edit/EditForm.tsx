@@ -1,9 +1,6 @@
 "use client"
 
-import type React from "react"
-import { useEffect, useState, useMemo, Suspense, useCallback, useRef } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { Suspense } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Paperclip, Trash2, UploadCloud, Eye, X, Download, Columns, Image, Hash, FileText, Calendar, Tag } from "lucide-react"
@@ -11,11 +8,20 @@ import { Toggle } from "@/components/ui/toggle"
 import { toast } from "sonner"
 import dynamic from "next/dynamic"
 import { POST_CATEGORIES as categories, DEFAULT_IMAGES } from "@/lib/constants"
-import { useLocalDraft } from "@/features/editor/hooks/useLocalDraft"
-import { MARKDOWN_IMPORT_STORAGE_KEY, parseMarkdownImportPayload } from "@/lib/shared/markdown-import"
-import { toSlug } from "@/lib/shared/slug"
-import { toPostPath } from "@/lib/shared/slug"
+import { toSlug, toPostPath } from "@/lib/shared/slug"
 import { sanitizeHtmlContent } from "@/lib/shared/security"
+import { isSafeStoragePath } from "@/lib/shared/storage"
+import { usePostForm } from "@/features/editor/hooks/usePostForm"
+import { useFileUpload } from "@/features/editor/hooks/useFileUpload"
+import {
+  MAX_EXCERPT_LENGTH,
+  MAX_TITLE_LENGTH,
+  MAX_CONTENT_LENGTH,
+  sanitizeTags,
+  sanitizeInputText,
+  normalizeSeriesSlug,
+  isMissingRelationError,
+} from "@/features/editor/lib/post-validation"
 
 const RealtimePreview = dynamic(() => import("@/features/editor/components/RealtimePreview"), {
   ssr: false,
@@ -30,528 +36,70 @@ const BlockEditor = dynamic(() => import("@/features/editor/components/BlockEdit
   ),
 })
 
-interface Attachment {
-  filename: string
-  url: string
-  filePath: string
-}
-
-interface DraftPayload {
-  title: string
-  category: string
-  excerpt: string
-  content: string
-  slug: string
-  tags: string[]
-  imageUrl: string
-  featuredImagePath: string | null
-  attachments: Attachment[]
-  seriesTitle: string
-  seriesSlug: string
-  seriesPosition: string
-}
-
-const MAX_EXCERPT_LENGTH = 500
-const MAX_TITLE_LENGTH = 120
-const MAX_CONTENT_LENGTH = 30000
-const MAX_TAG_LENGTH = 30
-const MAX_TAGS = 12
-const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
-const MAX_FEATURED_IMAGE_BYTES = 4 * 1024 * 1024
-const SAFE_ATTACHMENT_EXTENSIONS = new Set([
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "webp",
-  "pdf",
-  "txt",
-  "md",
-  "csv",
-  "json",
-])
-const SAFE_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp"])
-const DISALLOWED_EXTENSIONS = new Set([
-  "exe",
-  "bat",
-  "cmd",
-  "sh",
-  "js",
-  "jsx",
-  "ts",
-  "tsx",
-  "mjs",
-  "php",
-  "py",
-  "pl",
-  "jar",
-  "dll",
-  "msi",
-  "apk",
-  "iso",
-  "com",
-  "scr",
-  "ps1",
-  "vbs",
-  "aspx",
-  "asp",
-  "jsp",
-  "pyc",
-  "pyo",
-  "go",
-  "class",
-  "bin",
-  "elf",
-  "so",
-  "dmg",
-  "app",
-  "html",
-  "htm",
-  "svg",
-  "xml",
-])
-
-function extractFileExtension(name: string): string {
-  const rawExt = name.split(".").pop() || ""
-  return rawExt.toLowerCase()
-}
-
-function sanitizeStorageName(ext: string): string {
-  const safeExt = ext.slice(0, 8)
-  return `${crypto.randomUUID().replace(/-/g, "")}.${safeExt}`
-}
-
-async function readSignature(file: File, bytes = 16): Promise<number[]> {
-  const buffer = await file.slice(0, bytes).arrayBuffer()
-  return Array.from(new Uint8Array(buffer))
-}
-
-function hasBinarySignature(signature: number[], fileType: "image" | "pdf"): boolean {
-  if (fileType === "image") {
-    const png = [0x89, 0x50, 0x4e, 0x47]
-    const jpeg = [0xff, 0xd8, 0xff]
-    const gif = [0x47, 0x49, 0x46]
-    const webp = [0x52, 0x49, 0x46, 0x46]
-    return (
-      signature.slice(0, 4).every((value, index) => value === png[index]) ||
-      signature.slice(0, 3).every((value, index) => value === jpeg[index]) ||
-      signature.slice(0, 3).every((value, index) => value === gif[index]) ||
-      signature.slice(0, 4).every((value, index) => value === webp[index])
-    )
-  }
-
-  const pdf = [0x25, 0x50, 0x44, 0x46]
-  return signature.slice(0, 4).every((value, index) => value === pdf[index])
-}
-
-function normalizeUploadTag(tag: string): string {
-  return tag
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-zA-Z0-9가-힣-]/g, "")
-    .slice(0, MAX_TAG_LENGTH)
-}
-
-function isSafeStoragePath(filePath: string): boolean {
-  return /^[a-z0-9][a-z0-9/_-]{2,220}\.(png|jpg|jpeg|gif|webp|pdf|txt|md|csv|json)$/i.test(filePath)
-}
-
-function sanitizeTags(values: string[]): string[] {
-  const unique = new Set<string>()
-  values.forEach((rawTag) => {
-    const tag = normalizeUploadTag(rawTag)
-    if (tag) {
-      unique.add(tag.toLowerCase())
-    }
-  })
-  return Array.from(unique).slice(0, MAX_TAGS)
-}
-
-function sanitizeInputText(
-  value: string,
-  maxLength: number,
-  fallback = ""
-): string {
-  return value.trim().slice(0, maxLength) || fallback
-}
-
-async function validateAttachmentFile(file: File, kind: "image" | "attachment"): Promise<string> {
-  const ext = extractFileExtension(file.name)
-  if (!ext) {
-    throw new Error("확장자가 없는 파일은 업로드할 수 없습니다.")
-  }
-
-  if (DISALLOWED_EXTENSIONS.has(ext)) {
-    throw new Error("실행 파일/스크립트 파일은 업로드할 수 없습니다.")
-  }
-
-  const maxBytes = kind === "image" ? MAX_FEATURED_IMAGE_BYTES : MAX_ATTACHMENT_BYTES
-  if (file.size <= 0 || file.size > maxBytes) {
-    throw new Error("파일 크기가 허용 범위를 초과했습니다.")
-  }
-
-  const allowedExtensions = kind === "image" ? SAFE_IMAGE_EXTENSIONS : SAFE_ATTACHMENT_EXTENSIONS
-  if (!allowedExtensions.has(ext)) {
-    throw new Error("지원되지 않는 파일 형식입니다.")
-  }
-
-  const mime = (file.type || "").toLowerCase()
-  if (kind === "image") {
-    if (!mime.startsWith("image/")) {
-      throw new Error("이미지 파일만 업로드할 수 있습니다.")
-    }
-  }
-
-  if (kind === "image" || ext === "pdf") {
-    const signature = await readSignature(file)
-    if (kind === "image" && !hasBinarySignature(signature, "image")) {
-      throw new Error("이미지 파일 시그니처가 유효하지 않습니다.")
-    }
-    if (ext === "pdf" && !hasBinarySignature(signature, "pdf")) {
-      throw new Error("PDF 파일 시그니처가 유효하지 않습니다.")
-    }
-  }
-
-  return sanitizeStorageName(ext)
-}
-
-function normalizeSeriesSlug(input: string): string {
-  return input
-    .normalize("NFKC")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 80)
-}
-
-function isMissingRelationError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false
-  }
-  const code = "code" in error ? String((error as { code?: string }).code ?? "") : ""
-  return code === "42P01" || code === "42703"
-}
-
 function EditFormContent() {
-  const searchParams = useSearchParams()
-  const postId = searchParams.get("id")
-  const router = useRouter()
-
-  const [title, setTitle] = useState("")
-  const [category, setCategory] = useState("")
-  const [excerpt, setExcerpt] = useState("")
-  const [content, setContent] = useState("")
-  const [slug, setSlug] = useState("")
-  const [tags, setTags] = useState<string[]>([])
-  const [currentTag, setCurrentTag] = useState("")
-  const [seriesTitle, setSeriesTitle] = useState("")
-  const [seriesSlug, setSeriesSlug] = useState("")
-  const [seriesPosition, setSeriesPosition] = useState("")
-  const [imageUrl, setImageUrl] = useState(DEFAULT_IMAGES.THUMBNAIL)
-  const [featuredImagePath, setFeaturedImagePath] = useState<string | null>(null)
-  const [attachments, setAttachments] = useState<Attachment[]>([])
-  const [fileToDelete, setFileToDelete] = useState<string | null>(null)
-  const [showDeletePostDialog, setShowDeletePostDialog] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
-  const [isPostLoading, setIsPostLoading] = useState(false)
-  const [isAuthorizedPost, setIsAuthorizedPost] = useState(false)
-  const importedMarkdownAppliedRef = useRef(false)
-
-  const supabase = useMemo(() => createClient(), [])
-  const isEditMode = postId !== null
-  const draftStorageKey = useMemo(
-    () => (isEditMode ? `editor:draft:${postId}` : "editor:draft:new"),
-    [isEditMode, postId]
-  )
-
-  const draftPayload = useMemo<DraftPayload>(
-    () => ({
-      title,
-      category,
-      excerpt,
-      content,
-      slug,
-      tags,
-      imageUrl,
-      featuredImagePath,
-      attachments,
-      seriesTitle,
-      seriesSlug,
-      seriesPosition,
-    }),
-    [
-      title,
-      category,
-      excerpt,
-      content,
-      slug,
-      tags,
-      imageUrl,
-      featuredImagePath,
-      attachments,
-      seriesTitle,
-      seriesSlug,
-      seriesPosition,
-    ]
-  )
-
-  const applyDraftPayload = useCallback((draft: DraftPayload) => {
-    setTitle(draft.title || "")
-    setCategory(draft.category || "")
-    setExcerpt(draft.excerpt || "")
-    setSlug(draft.slug || "")
-    setContent(draft.content || "")
-    setTags(sanitizeTags(draft.tags || []))
-    setImageUrl(draft.imageUrl || DEFAULT_IMAGES.THUMBNAIL)
-    setFeaturedImagePath(draft.featuredImagePath || null)
-    setAttachments((draft.attachments || []).filter((file) => isSafeStoragePath(file.filePath)))
-    setSeriesTitle(draft.seriesTitle || "")
-    setSeriesSlug(draft.seriesSlug || "")
-    setSeriesPosition(draft.seriesPosition || "")
-  }, [])
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push("/login")
-        return
-      }
-      setUserId(user.id)
-    }
-    checkUser()
-  }, [supabase, router])
-
-  useEffect(() => {
-    const fetchPost = async () => {
-      if (!postId || !userId) {
-        return
-      }
-
-      setIsPostLoading(true)
-      setIsAuthorizedPost(false)
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*")
-        .eq("id", postId)
-        .eq("author_id", userId)
-        .maybeSingle()
-
-      if (!data) {
-        setIsPostLoading(false)
-        if (error) {
-          toast.error(`Error: ${error.message}`)
-        } else {
-          toast.error("권한이 없거나 존재하지 않는 글입니다.")
-          router.push("/")
-        }
-        return
-      }
-
-      if (error) {
-        setIsPostLoading(false)
-        toast.error(`Error: ${error.message}`)
-        return
-      }
-
-      setIsAuthorizedPost(true)
-      setTitle(data.title || "")
-      setCategory(data.category || "")
-      setExcerpt(sanitizeInputText(data.excerpt || "", MAX_EXCERPT_LENGTH))
-      setContent(data.content || "")
-      setSlug(data.slug || toSlug(data.title || ""))
-      setTags(sanitizeTags(data.tags || []))
-      setImageUrl(data.image_url || DEFAULT_IMAGES.THUMBNAIL)
-      setFeaturedImagePath(
-        isSafeStoragePath(data.featured_image_path || "")
-          ? data.featured_image_path
-          : null
-      )
-      setAttachments(((data.attachments || []) as Attachment[]).filter((attachment) =>
-        isSafeStoragePath(attachment?.filePath || "")
-      ))
-
-      const { data: seriesData, error: seriesError } = await supabase
-        .from("post_series_items")
-        .select("series_title, series_slug, position")
-        .eq("post_id", postId)
-        .maybeSingle()
-
-      if (!seriesError && seriesData) {
-        setSeriesTitle(seriesData.series_title || "")
-        setSeriesSlug(seriesData.series_slug || "")
-        setSeriesPosition(
-          typeof seriesData.position === "number" ? String(seriesData.position) : ""
-        )
-      } else if (seriesError && !isMissingRelationError(seriesError)) {
-        console.error("Failed to load series metadata:", seriesError)
-      }
-
-      setIsPostLoading(false)
-    }
-
-    if (isEditMode) {
-      fetchPost()
-    } else {
-      setIsAuthorizedPost(true)
-    }
-  }, [postId, isEditMode, userId, supabase, router])
-
-  const isEditorReady = !isEditMode || !isPostLoading
-
-  const buildUniqueSlug = useCallback(async (inputSlug: string): Promise<string> => {
-    const baseSlug = inputSlug || "untitled"
-    let candidate = baseSlug
-
-    for (let i = 1; i <= 20; i += 1) {
-      const query = supabase
-        .from("posts")
-        .select("id")
-        .eq("slug", candidate)
-
-      const { data: slugRows, error } = await query
-        .order("id")
-        .limit(10)
-
-      if (error) {
-        throw error
-      }
-
-      const conflictingIds = ((slugRows as { id: string }[] | null) || [])
-        .map((row) => row.id)
-        .filter(Boolean)
-        .filter((id) => id !== postId)
-
-      if (conflictingIds.length === 0) {
-        return candidate
-      }
-
-      candidate = `${baseSlug}-${i + 1}`
-    }
-
-    return `${baseSlug}-${Date.now()}`
-  }, [postId, supabase])
+  const form = usePostForm()
 
   const {
+    postId,
+    router,
+    supabase,
+    isEditMode,
+    title, setTitle,
+    category, setCategory,
+    excerpt, setExcerpt,
+    content,
+    slug, setSlug,
+    tags,
+    currentTag, setCurrentTag,
+    seriesTitle, setSeriesTitle,
+    seriesSlug, setSeriesSlug,
+    seriesPosition, setSeriesPosition,
+    imageUrl,
+    featuredImagePath,
+    attachments, setAttachments,
+    fileToDelete, setFileToDelete,
+    showDeletePostDialog, setShowDeletePostDialog,
+    isUploading, setIsUploading,
+    isSubmitting, setIsSubmitting,
+    showPreview, setShowPreview,
+    userId,
+    isPostLoading,
+    isAuthorizedPost,
+    isEditorReady,
+    draftPayload,
     recoverableDraft,
     isAutoSaving,
     lastAutoSavedAt,
-    restoreDraft,
-    dismissRecoveredDraft,
-    deleteRecoveredDraft,
     clearDraft,
-  } = useLocalDraft<DraftPayload>({
-    storageKey: draftStorageKey,
-    isReady: isEditorReady,
-    payload: draftPayload,
-    hasMeaningfulContent: (payload) =>
-      Boolean(
-        payload.title.trim() ||
-          payload.excerpt.trim() ||
-          payload.content.trim() ||
-          payload.tags.length > 0 ||
-          payload.attachments.length > 0 ||
-          payload.seriesTitle.trim()
-      ),
-    onRestore: applyDraftPayload,
-  })
+    buildUniqueSlug,
+    handleContentChange,
+    handleTagKeyDown,
+    removeTag,
+    handlePreview,
+    handleRestoreDraft,
+    handleDismissRecoveredDraft,
+    handleDeleteRecoveredDraft,
+  } = form
 
-  useEffect(() => {
-    if (isEditMode || importedMarkdownAppliedRef.current) {
-      return
-    }
-
-    if (typeof window === "undefined") {
-      return
-    }
-
-    const rawPayload = window.localStorage.getItem(MARKDOWN_IMPORT_STORAGE_KEY)
-    importedMarkdownAppliedRef.current = true
-
-    if (!rawPayload) {
-      return
-    }
-
-    window.localStorage.removeItem(MARKDOWN_IMPORT_STORAGE_KEY)
-
-    const parsedPayload = parseMarkdownImportPayload(rawPayload)
-    if (!parsedPayload) {
-      toast.error("Failed to parse markdown preset.")
-      return
-    }
-
-    const hasExistingContent = Boolean(
-      title.trim() ||
-        excerpt.trim() ||
-        content.trim() ||
-        tags.length > 0 ||
-        attachments.length > 0 ||
-        seriesTitle.trim() ||
-        seriesSlug.trim() ||
-        seriesPosition.trim()
-    )
-
-    if (hasExistingContent) {
-      return
-    }
-
-    setTitle(sanitizeInputText(parsedPayload.title, MAX_TITLE_LENGTH))
-    setExcerpt(sanitizeInputText(parsedPayload.excerpt, MAX_EXCERPT_LENGTH))
-    setContent(sanitizeInputText(parsedPayload.body, MAX_CONTENT_LENGTH))
-    toast.success("Markdown preset imported.")
-  }, [
+  const {
+    handleFileUpload,
+    handleFeaturedImageUpload,
+    handleFeaturedImageRemove,
+    handleFileDelete,
+    executeFileDelete,
+  } = useFileUpload({
+    userId,
+    isAuthorizedPost,
     isEditMode,
-    title,
-    excerpt,
-    content,
-    tags.length,
-    attachments.length,
-    seriesTitle,
-    seriesSlug,
-    seriesPosition,
-  ])
-
-  const handlePreview = () => {
-    const previewData = { ...draftPayload, postId }
-    localStorage.setItem("previewData", JSON.stringify(previewData))
-    window.location.href = "/edit/preview"
-  }
-
-  const handleRestoreDraft = () => {
-    if (restoreDraft()) {
-      toast.success("Saved draft restored.")
-    }
-  }
-
-  const handleDismissRecoveredDraft = () => {
-    dismissRecoveredDraft()
-  }
-
-  const handleDeleteRecoveredDraft = () => {
-    deleteRecoveredDraft()
-    toast.success("Local draft deleted.")
-  }
-
-  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && currentTag.trim()) {
-      e.preventDefault()
-      const normalizedTag = normalizeUploadTag(currentTag)
-      if (normalizedTag && !tags.includes(normalizedTag) && tags.length < MAX_TAGS) {
-        setTags([...tags, normalizedTag])
-      }
-      setCurrentTag("")
-    }
-  }
-
-  const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove))
-  }
+    supabase,
+    featuredImagePath,
+    setAttachments,
+    setImageUrl: form.setImageUrl,
+    setFeaturedImagePath: form.setFeaturedImagePath,
+    setFileToDelete,
+    setIsUploading,
+    fileToDelete,
+  })
 
   const handleDelete = async () => {
     if (!postId) return
@@ -620,158 +168,6 @@ function EditFormContent() {
       router.refresh()
     }
   }
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) {
-      return
-    }
-    if (!userId || (!isAuthorizedPost && isEditMode)) {
-      toast.error("업로드 권한이 없습니다.")
-      return
-    }
-
-    const file = e.target.files[0]
-
-    setIsUploading(true)
-    try {
-      const safeFileName = await validateAttachmentFile(file, "attachment")
-      const { error } = await supabase.storage.from("files").upload(safeFileName, file)
-
-      if (error) {
-        toast.error(`Upload error: ${error.message}`)
-      } else {
-        const { data: { publicUrl } } = supabase.storage.from("files").getPublicUrl(safeFileName)
-        setAttachments((current) => [
-          ...current,
-          { filename: file.name, url: publicUrl, filePath: safeFileName },
-        ])
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "파일 업로드에 실패했습니다."
-      toast.error(message)
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  const handleFeaturedImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) {
-      return
-    }
-    if (!userId || (!isAuthorizedPost && isEditMode)) {
-      toast.error("업로드 권한이 없습니다.")
-      return
-    }
-
-    const file = e.target.files[0]
-    setIsUploading(true)
-    try {
-      const safeFileName = await validateAttachmentFile(file, "image")
-      if (featuredImagePath && isSafeStoragePath(featuredImagePath)) {
-        await supabase.storage.from("files").remove([featuredImagePath])
-      }
-
-      const { error } = await supabase.storage.from("files").upload(safeFileName, file)
-      if (error) {
-        toast.error(`Upload error: ${error.message}`)
-      } else {
-        const { data: { publicUrl } } = supabase.storage.from("files").getPublicUrl(safeFileName)
-        setImageUrl(publicUrl)
-        setFeaturedImagePath(safeFileName)
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "대표 이미지 업로드에 실패했습니다."
-      toast.error(message)
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  const handleFeaturedImageRemove = async () => {
-    if (!featuredImagePath) {
-      setImageUrl(DEFAULT_IMAGES.THUMBNAIL)
-      return
-    }
-    if (!userId || (!isAuthorizedPost && isEditMode)) {
-      toast.error("삭제 권한이 없습니다.")
-      return
-    }
-    if (!isSafeStoragePath(featuredImagePath)) {
-      toast.error("허용되지 않은 경로의 파일입니다.")
-      return
-    }
-
-    setIsUploading(true)
-    const { error } = await supabase.storage.from("files").remove([featuredImagePath])
-    
-    if (error) {
-      toast.error(`Failed to remove image: ${error.message}`)
-      setIsUploading(false)
-      return
-    }
-
-    setImageUrl(DEFAULT_IMAGES.THUMBNAIL)
-    setFeaturedImagePath(null)
-    setIsUploading(false)
-  }
-
-  const handleFileDelete = (filePath: string) => {
-    if (!isSafeStoragePath(filePath)) {
-      toast.error("허용되지 않은 파일 경로입니다.")
-      return
-    }
-    setFileToDelete(filePath)
-  }
-
-  const executeFileDelete = async () => {
-    if (!fileToDelete) return
-    if (!userId || (!isAuthorizedPost && isEditMode)) {
-      setFileToDelete(null)
-      toast.error("삭제 권한이 없습니다.")
-      return
-    }
-    if (!isSafeStoragePath(fileToDelete)) {
-      setFileToDelete(null)
-      toast.error("허용되지 않은 파일 경로입니다.")
-      return
-    }
-
-    const filePathToDelete = fileToDelete
-    setAttachments((current) => current.filter((att) => att.filePath !== filePathToDelete))
-    setFileToDelete(null)
-
-    const { error } = await supabase.storage.from('files').remove([filePathToDelete])
-    
-    if (error) {
-      toast.error(`Failed to delete file: ${error.message}`)
-    }
-  }
-
-  const handleContentChange = useCallback((nextContent: string) => {
-    const trimmed = nextContent.trim()
-    if (trimmed.startsWith("[")) {
-      setContent((prev) => (prev === nextContent ? prev : nextContent))
-      return
-    }
-
-    if (!nextContent.includes("'''")) {
-      setContent((prev) => (prev === nextContent ? prev : nextContent))
-      return
-    }
-
-    const lines = nextContent.split("\n")
-    let updated = false
-    const updatedLines = lines.map((line) => {
-      if (line.trim() === "'''") {
-        updated = true
-        return "```"
-      }
-      return line
-    })
-
-    const normalized = updated ? updatedLines.join("\n") : nextContent
-    setContent((prev) => (prev === normalized ? prev : normalized))
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
