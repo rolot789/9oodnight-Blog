@@ -153,7 +153,7 @@ export default function PostHtmlClient({ html }: PostHtmlClientProps) {
   return (
     <div
       ref={containerRef}
-      className="post-content prose prose-sm md:prose-base max-w-none text-[#080f18]"
+      className="post-content max-w-none text-[#080f18]"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

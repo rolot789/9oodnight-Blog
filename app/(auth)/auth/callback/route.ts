@@ -1,14 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import type { ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
 import { getSafeRedirectPath } from "@/lib/shared/security";
 
-function normalizeCookieOptions(options: Record<string, unknown>) {
+function normalizeCookieOptions(options: Partial<ResponseCookie> = {}): Partial<ResponseCookie> {
   const isProduction = process.env.NODE_ENV === "production"
   return {
     ...options,
-    httpOnly: options?.httpOnly ?? true,
-    secure: options?.secure ?? isProduction,
-    sameSite: options?.sameSite ?? "lax",
+    httpOnly: typeof options.httpOnly === "boolean" ? options.httpOnly : true,
+    secure: typeof options.secure === "boolean" ? options.secure : isProduction,
+    sameSite: options.sameSite ?? "lax",
   }
 }
 

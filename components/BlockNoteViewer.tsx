@@ -510,7 +510,19 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
         .blocknote-viewer-wrapper h2,
         .blocknote-viewer-wrapper h3,
         .blocknote-viewer-wrapper h4 {
+          margin-top: 0 !important;
+          margin-bottom: 0 !important;
+        }
+
+        /* Heading margins should be applied on block containers only, not inline content. */
+        .blocknote-viewer-wrapper .bn-block-content[data-content-type="heading"][data-level="2"],
+        .blocknote-viewer-wrapper .bn-block-content[data-content-type="heading"][data-level="3"] {
           margin: 0;
+        }
+
+        .blocknote-viewer-wrapper .bn-block-content[data-content-type="heading"][data-level="1"] {
+          margin-top: 14px !important;
+          margin-bottom: 8px !important;
         }
 
         .blocknote-viewer-wrapper [data-content-type="heading"][data-level="1"] {
@@ -537,6 +549,13 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
           margin-top: 8px !important;
           margin-bottom: 8px !important;
           scroll-margin-top: 50px;
+        }
+
+        .blocknote-viewer-wrapper .bn-inline-content h1,
+        .blocknote-viewer-wrapper .bn-inline-content h2,
+        .blocknote-viewer-wrapper .bn-inline-content h3 {
+          margin-top: 0 !important;
+          margin-bottom: 0 !important;
         }
         
         .blocknote-viewer-wrapper blockquote,

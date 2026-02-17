@@ -108,9 +108,9 @@ async function applyCodeHighlighting(html: string): Promise<string> {
 
 const postHtmlStyles = `
   .post-content p { margin-bottom: 1rem; line-height: 1.7; }
-  .post-content h1 { font-size: 2rem; font-weight: 700; margin: 14px 0 8px; line-height: 1.3; scroll-margin-top: 84px; }
-  .post-content h2 { font-size: 1.5rem; font-weight: 600; margin: 12px 0 8px; line-height: 1.35; scroll-margin-top: 84px; }
-  .post-content h3 { font-size: 1.25rem; font-weight: 600; margin: 8px 0 8px; line-height: 1.4; scroll-margin-top: 84px; }
+  .post-content h1 { font-size: 2rem; font-weight: 700; margin: 14px 0 8px !important; line-height: 1.3; scroll-margin-top: 84px; }
+  .post-content h2 { font-size: 1.5rem; font-weight: 600; margin: 12px 0 8px !important; line-height: 1.35; scroll-margin-top: 84px; }
+  .post-content h3 { font-size: 1.25rem; font-weight: 600; margin: 8px 0 8px !important; line-height: 1.4; scroll-margin-top: 84px; }
   .post-content ul, .post-content ol { padding-left: 1.5rem; margin-bottom: 1rem; }
   .post-content li { margin: 0.25rem 0; }
   .post-content blockquote { border-left: 4px solid #6096ba; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic; }
