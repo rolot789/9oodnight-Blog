@@ -505,32 +505,37 @@ export default function BlockNoteViewer({ content, className = "" }: BlockNoteVi
           display: none !important;
         }
         
+        /* Prevent doubled heading spacing when wrapper and nested heading both get margins. */
         .blocknote-viewer-wrapper h1,
-        .blocknote-viewer-wrapper [data-level="1"] {
+        .blocknote-viewer-wrapper h2,
+        .blocknote-viewer-wrapper h3,
+        .blocknote-viewer-wrapper h4 {
+          margin: 0;
+        }
+
+        .blocknote-viewer-wrapper [data-content-type="heading"][data-level="1"] {
           font-size: 2rem;
           font-weight: 700;
-          margin-top: 2rem;
-          margin-bottom: 0.75rem;
+          margin-top: 14px !important;
+          margin-bottom: 8px !important;
           line-height: 1.3;
           scroll-margin-top: 50px;
         }
         
-        .blocknote-viewer-wrapper h2,
-        .blocknote-viewer-wrapper [data-level="2"] {
+        .blocknote-viewer-wrapper [data-content-type="heading"][data-level="2"] {
           font-size: 1.5rem;
           font-weight: 600;
-          margin-top: 1.75rem;
-          margin-bottom: 0.5rem;
+          margin-top: 12px !important;
+          margin-bottom: 8px !important;
           line-height: 1.35;
           scroll-margin-top: 50px;
         }
         
-        .blocknote-viewer-wrapper h3,
-        .blocknote-viewer-wrapper [data-level="3"] {
+        .blocknote-viewer-wrapper [data-content-type="heading"][data-level="3"] {
           font-size: 1.25rem;
           font-weight: 600;
-          margin-top: 1.5rem;
-          margin-bottom: 0.5rem;
+          margin-top: 8px !important;
+          margin-bottom: 8px !important;
           scroll-margin-top: 50px;
         }
         

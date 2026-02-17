@@ -38,20 +38,40 @@ export const getPostByIdentifier = cache(async (identifier: string): Promise<Pos
   const supabase = await createClient()
   const lookupIdentifiers = getPostLookupIdentifiers(identifier)
   let postBySlug: Post | null = null
+  let slugError: { message: string } | null = null
 
-  const slugQuery = supabase
-    .from("posts")
-    .select("*")
+  if (lookupIdentifiers.length > 0) {
+    const slugQuery = supabase
+      .from("posts")
+      .select("*")
 
-  const { data: postBySlugRaw, error: slugError } = await (lookupIdentifiers.length === 1
-    ? slugQuery.eq("slug", lookupIdentifiers[0]).maybeSingle()
-    : slugQuery.in("slug", lookupIdentifiers).maybeSingle())
+    const { data: postBySlugRaw, error: slugLookupError } = await (lookupIdentifiers.length === 1
+      ? slugQuery.eq("slug", lookupIdentifiers[0]).maybeSingle()
+      : slugQuery.in("slug", lookupIdentifiers).maybeSingle())
 
-  if (!slugError && postBySlugRaw) {
-    postBySlug = postBySlugRaw as Post
+    slugError = slugLookupError
+
+    if (!slugLookupError && postBySlugRaw) {
+      postBySlug = postBySlugRaw as Post
+    }
+
+    if (!postBySlug) {
+      for (const candidate of lookupIdentifiers) {
+        const { data: fallbackPost, error: fallbackError } = await supabase
+          .from("posts")
+          .select("*")
+          .ilike("slug", candidate)
+          .maybeSingle()
+
+        if (!fallbackError && fallbackPost) {
+          postBySlug = fallbackPost as Post
+          break
+        }
+      }
+    }
   }
 
-  if (!slugError && postBySlug) {
+  if (postBySlug) {
     return postBySlug
   }
 
@@ -63,14 +83,17 @@ export const getPostByIdentifier = cache(async (identifier: string): Promise<Pos
     })
   }
 
-  if (!isUuid(identifier)) {
+  const hasUuidCandidate = lookupIdentifiers.some((value) => isUuid(value))
+  if (!hasUuidCandidate) {
     return null
   }
+
+  const candidateUuid = lookupIdentifiers.find((value) => isUuid(value)) ?? identifier
 
   const { data: postById, error: idError } = await supabase
     .from("posts")
     .select("*")
-    .eq("id", identifier)
+    .eq("id", candidateUuid)
     .maybeSingle()
 
   if (idError || !postById) {
@@ -82,6 +105,7 @@ export const getPostByIdentifier = cache(async (identifier: string): Promise<Pos
 
 export function getPostLookupIdentifiers(identifier: string): string[] {
   const candidates = new Set<string>()
+
   const appendCandidate = (value: string) => {
     const trimmed = value.trim()
     if (!trimmed) {
@@ -90,10 +114,43 @@ export function getPostLookupIdentifiers(identifier: string): string[] {
     candidates.add(trimmed)
   }
 
-  appendCandidate(identifier)
+  const appendVariants = (value: string) => {
+    appendCandidate(value)
+
+    const withoutQuery = value.split("?")[0].split("#")[0]
+    appendCandidate(withoutQuery)
+
+    const withoutLeadingSlash = withoutQuery.replace(/^\/+/, "").replace(/\/+$/, "")
+    appendCandidate(withoutLeadingSlash)
+
+    const withoutPostPrefix = withoutLeadingSlash.replace(/^post\//i, "")
+    appendCandidate(withoutPostPrefix)
+
+    const lastSegment = withoutPostPrefix.split("/").pop() || ""
+    appendCandidate(lastSegment)
+
+    if (withoutLeadingSlash !== withoutPostPrefix) {
+      const postSegment = withoutLeadingSlash.split("/post/").pop() || ""
+      appendCandidate(postSegment)
+    }
+
+    const normalized = withoutPostPrefix
+      .normalize("NFKC")
+      .trim()
+      .toLowerCase()
+    appendCandidate(normalized)
+
+    const lowerLastSegment = lastSegment
+      .normalize("NFKC")
+      .trim()
+      .toLowerCase()
+    appendCandidate(lowerLastSegment)
+  }
+
+  appendVariants(identifier)
 
   try {
-    appendCandidate(decodeURIComponent(identifier))
+    appendVariants(decodeURIComponent(identifier))
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {
       console.warn("[getPostByIdentifier] decodeURIComponent failed", {
@@ -103,9 +160,9 @@ export function getPostLookupIdentifiers(identifier: string): string[] {
     }
   }
 
-  appendCandidate(identifier.normalize("NFKC"))
+  appendVariants(identifier.normalize("NFKC"))
   try {
-    appendCandidate(decodeURIComponent(identifier).normalize("NFKC"))
+    appendVariants(decodeURIComponent(identifier).normalize("NFKC"))
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {
       console.warn("[getPostByIdentifier] normalized decode failed", {

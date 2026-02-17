@@ -48,9 +48,9 @@ function normalizeMarkdown(content: string): string {
 // Style overrides for BlockNote HTML content
 const htmlStyles = `
   .blocknote-html-content p { margin-bottom: 1rem; line-height: 1.7; }
-  .blocknote-html-content h1 { font-size: 2rem; font-weight: 700; margin: 2rem 0 1rem; }
-  .blocknote-html-content h2 { font-size: 1.5rem; font-weight: 600; margin: 1.75rem 0 0.75rem; }
-  .blocknote-html-content h3 { font-size: 1.25rem; font-weight: 600; margin: 1.5rem 0 0.5rem; }
+  .blocknote-html-content h1 { font-size: 2rem; font-weight: 700; margin: 14px 0 8px; }
+  .blocknote-html-content h2 { font-size: 1.5rem; font-weight: 600; margin: 12px 0 8px; }
+  .blocknote-html-content h3 { font-size: 1.25rem; font-weight: 600; margin: 8px 0 8px; }
   .blocknote-html-content ul, .blocknote-html-content ol { padding-left: 1.5rem; margin-bottom: 1rem; }
   .blocknote-html-content li { margin: 0.25rem 0; }
   .blocknote-html-content blockquote { border-left: 4px solid #6096ba; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic; }
