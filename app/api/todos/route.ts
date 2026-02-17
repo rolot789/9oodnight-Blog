@@ -13,12 +13,12 @@ const MAX_PAGE_SIZE = 100
 const todoListQuerySchema = z.object({
   page: z.coerce.number().int().min(0).max(1000).default(0),
   pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
-  category: z.enum(TODO_CATEGORIES as readonly [string, ...string[]]).optional(),
+  category: z.enum(TODO_CATEGORIES).optional(),
 })
 
 const todoCreateSchema = z.object({
   text: z.string().trim().min(1).max(500),
-  category: z.enum(TODO_CATEGORIES as readonly [string, ...string[]]).optional(),
+  category: z.enum(TODO_CATEGORIES).optional(),
   postId: z
     .string()
     .uuid({ message: "유효하지 않은 게시글 ID 입니다." })

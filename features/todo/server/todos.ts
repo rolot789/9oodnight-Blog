@@ -136,7 +136,8 @@ export async function createTodo(input: {
     throw new Error("TODO text is required")
   }
 
-  const category = TODO_CATEGORIES.includes(input.category) ? input.category : "Draft"
+  const validTodoCategories = TODO_CATEGORIES as readonly string[]
+  const category = validTodoCategories.includes(input.category) ? input.category : "Draft"
 
   const { data, error } = await supabase
     .from("todos")
@@ -179,7 +180,8 @@ export async function updateTodo(
   }
 
   if (typeof patch.category === "string") {
-    updatePayload.category = TODO_CATEGORIES.includes(patch.category) ? patch.category : "Draft"
+    const validTodoCategories = TODO_CATEGORIES as readonly string[]
+    updatePayload.category = validTodoCategories.includes(patch.category) ? patch.category : "Draft"
   }
 
   if (typeof patch.status === "string") {

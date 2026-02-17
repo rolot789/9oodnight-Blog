@@ -3,14 +3,63 @@ import { type NextRequest, NextResponse } from "next/server";
 import type { ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
 import { getSafeRedirectPath } from "@/lib/shared/security";
 
-function normalizeCookieOptions(options: Partial<ResponseCookie> = {}): Partial<ResponseCookie> {
+type RawCookieOptions = {
+  domain?: unknown
+  expires?: unknown
+  httpOnly?: unknown
+  maxAge?: unknown
+  partitioned?: unknown
+  path?: unknown
+  priority?: unknown
+  sameSite?: unknown
+  secure?: unknown
+}
+
+function normalizeCookieOptions(options: RawCookieOptions = {}): Partial<ResponseCookie> {
   const isProduction = process.env.NODE_ENV === "production"
-  return {
-    ...options,
-    httpOnly: typeof options.httpOnly === "boolean" ? options.httpOnly : true,
-    secure: typeof options.secure === "boolean" ? options.secure : isProduction,
-    sameSite: options.sameSite ?? "lax",
+  const normalized: Partial<ResponseCookie> = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax",
   }
+
+  if (typeof options.domain === "string") {
+    normalized.domain = options.domain
+  }
+
+  if (typeof options.path === "string") {
+    normalized.path = options.path
+  }
+
+  if (typeof options.maxAge === "number") {
+    normalized.maxAge = options.maxAge
+  }
+
+  if (options.expires instanceof Date) {
+    normalized.expires = options.expires
+  }
+
+  if (typeof options.httpOnly === "boolean") {
+    normalized.httpOnly = options.httpOnly
+  }
+
+  if (typeof options.secure === "boolean") {
+    normalized.secure = options.secure
+  }
+
+  if (typeof options.partitioned === "boolean") {
+    normalized.partitioned = options.partitioned
+  }
+
+  if (options.priority === "low" || options.priority === "medium" || options.priority === "high") {
+    normalized.priority = options.priority
+  }
+
+  if (options.sameSite === true || options.sameSite === false || options.sameSite === "lax" || options.sameSite === "strict" || options.sameSite === "none") {
+    normalized.sameSite = options.sameSite
+  }
+
+  return normalized
 }
 
 export async function GET(request: NextRequest) {

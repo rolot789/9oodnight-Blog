@@ -25,7 +25,7 @@ const searchQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(50).default(10),
 })
 
-function parseDateParam(raw: string | null): string | undefined {
+function parseDateParam(raw: string | undefined): string | undefined {
   if (!raw) {
     return undefined
   }

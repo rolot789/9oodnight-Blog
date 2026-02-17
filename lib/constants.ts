@@ -9,7 +9,7 @@ export const CATEGORIES = [
   "Draft"
 ] as const
 
-export const TODO_CATEGORIES = ["Draft", "General", "Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
+export const TODO_CATEGORIES = ["Draft", "General", "Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"] as const
 
 export const POST_CATEGORIES = ["Mathematics", "Development", "DevOps", "Computer Science", "Crypto", "Research"]
 

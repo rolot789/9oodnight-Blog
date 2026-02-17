@@ -9,7 +9,7 @@ function getRequestIp(request: NextRequest) {
   if (forwardedFor) {
     return forwardedFor.split(",")[0]?.trim() || ""
   }
-  return request.headers.get("x-real-ip") || request.ip || ""
+  return request.headers.get("x-real-ip") || ""
 }
 
 function isAllowedCorsOrigin(origin: string | null): string | null {

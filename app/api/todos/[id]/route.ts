@@ -15,8 +15,8 @@ interface Params {
 const uuidParamSchema = z.object({ id: z.string().uuid({ message: "유효하지 않은 todo ID입니다." }) })
 
 const todoUpdateSchema = z.object({
-  category: z.enum(TODO_CATEGORIES as readonly [string, ...string[]]).optional(),
-  status: z.enum(STATUSES as readonly [string, ...string[]]).optional(),
+  category: z.enum(TODO_CATEGORIES).optional(),
+  status: z.enum(STATUSES).optional(),
   completed: z.boolean().optional(),
   postId: z
     .string()
